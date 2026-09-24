@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NEET-PG Gujarat Admission Predictor</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main>
+    <h1>NEET-PG 2026 · Gujarat Admission Predictor</h1>
+    <p id="loading">Loading data…</p>
+
+    <form id="form" hidden>
+      <label>Application number <input id="app" required placeholder="PG26114274" autocomplete="off"></label>
+      <label>Category
+        <select id="category">
+          <option value="GEN">General</option><option value="EWS">EWS</option>
+          <option value="SEBC">SEBC / OBC</option><option value="SC">SC</option><option value="ST">ST</option>
+        </select>
+      </label>
+      <label class="check"><input type="checkbox" id="domicile" checked> Gujarat domicile</label>
+      <button type="submit">Show result</button>
+    </form>
+    <p id="error" class="error" role="alert"></p>
+
+    <section id="result" hidden></section>
+    <button id="predict" hidden>Predict my Gujarat options</button>
+
+    <section id="prediction" hidden>
+      <div id="merit"></div>
+      <h2>Insights</h2>
+      <div id="insights"></div>
+      <h2>All options</h2>
+      <div class="filters">
+        <select id="f-stream"><option value="">All streams</option></select>
+        <select id="f-type"><option value="">All college types</option></select>
+        <select id="f-route"><option value="">All routes</option></select>
+        <select id="f-chance">
+          <option value="reach">High / Good / Borderline</option><option value="">All chances</option>
+          <option value="High">High</option><option value="Good">Good</option>
+          <option value="Borderline">Borderline</option><option value="Low">Low</option>
+        </select>
+        <button id="csv" type="button">Download CSV</button>
+      </div>
+      <p id="count"></p>
+      <table id="table"><thead></thead><tbody></tbody></table>
+      <details class="legend"><summary>What do High / Good / Borderline / Low mean?</summary>
+        <p><b>High</b>: last 2025 admit was at least 15% past your position. <b>Good</b>: last admit at or a little past you.
+          <b>Borderline</b>: last admit within 10% ahead of you. <b>Low</b>: seat closed well before your position.</p>
+      </details>
+      <p class="disclaimer">Estimates from Gujarat 2025-26 state cutoffs and MCC 2024/2025 cutoffs. Not a guarantee.
+        Check your real merit number in the official 2026 Gujarat merit list.</p>
+    </section>
+  </main>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
