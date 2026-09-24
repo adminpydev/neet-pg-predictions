@@ -4,6 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>NEET-PG 2026 · Gujarat Admission Predictor</title>
+  <!-- Umami: cookieless analytics; data-domains skips localhost testing. Only button clicks are sent, never app number/category/score. -->
+  <script defer src="https://cloud.umami.is/script.js" data-website-id="be53304c-ef54-4a46-ac0e-5fc77f7f5a9a" data-domains="adminpydev.github.io"></script>
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="styles.css">
 </head>
@@ -37,7 +39,7 @@
         <span class="toggle-ui" aria-hidden="true"></span>
         <span>Gujarat domicile</span>
       </label>
-      <button class="btn btn-primary btn-block" type="submit">Show result</button>
+      <button class="btn btn-primary btn-block" type="submit" data-umami-event="show-result">Show result</button>
     </form>
 
     <p id="error" class="error" role="alert"></p>
@@ -61,7 +63,7 @@
         </dl>
       </details>
       <p class="status-msg" hidden></p>
-      <button id="predict" class="btn btn-primary btn-block" type="button" hidden>Predict my Gujarat options</button>
+      <button id="predict" class="btn btn-primary btn-block" type="button" data-umami-event="predict" hidden>Predict my Gujarat options</button>
     </section>
 
     <section id="prediction" hidden aria-live="polite" tabindex="-1">
@@ -100,7 +102,7 @@
 
       <div class="list-head">
         <p id="count" class="muted"></p>
-        <button id="csv" class="btn btn-secondary" type="button">Download CSV</button>
+        <button id="csv" class="btn btn-secondary" type="button" data-umami-event="download-csv">Download CSV</button>
       </div>
 
       <div id="cards" class="option-list"></div>
