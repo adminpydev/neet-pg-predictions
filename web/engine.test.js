@@ -57,3 +57,62 @@ test("estimateMerit beyond list range extrapolates without NaN", () => {
 test("estimateMerit never returns merit below 1", () => {
   assert.equal(estimateMerit(1, "GEN", meritMap).general, 1);
 });
+
+import { gujaratOptions, label, mccOptions } from "./engine.js";
+
+const merit = { general: 510, category: 99, extrapolated: false };
+const guj = (last, extra = {}) => ({ code: "X", college: "College X", type: "Govt", course: "Dermatology",
+  stream: "Dermatology", degree: "MD", seat: "GQ", fee: 130800, seats: 2, last, ...extra });
+
+test("label thresholds", () => {
+  assert.deepEqual([1.15, 1, 0.9, 0.89].map(label), ["High", "Good", "Borderline", "Low"]);
+});
+
+test("SEBC candidate reaches seat via SEBC merit in round 1", () => {
+  const [o] = gujaratOptions(merit, "SEBC", [guj({ 1: { OPEN: 100, SEBC: 132 }, 2: { SEBC: 156 } })]);
+  assert.equal(o.chance, "High");
+  assert.equal(o.earliestRound, 1);
+  assert.equal(o.route, "Gujarat State - Govt Quota");
+  assert.match(o.reason, /SEBC merit 156/);
+});
+
+test("far-away seat is Low", () => {
+  const [o] = gujaratOptions(merit, "SEBC", [guj({ 1: { OPEN: 28, SEBC: 14 }, 4: { OPEN: 70, SEBC: 20 } })]);
+  assert.equal(o.chance, "Low");
+  assert.equal(o.earliestRound, null);
+});
+
+test("GEN candidate is never matched on a category column", () => {
+  const [o] = gujaratOptions({ general: 510, category: null }, "GEN", [guj({ 1: { OPEN: 100, SEBC: 9999 } })]);
+  assert.equal(o.chance, "Low");
+});
+
+test("management quota uses OPEN only", () => {
+  const [o] = gujaratOptions(merit, "SEBC", [guj({ 1: { OPEN: 600, SEBC: 5 } }, { seat: "MQ", type: "Private" })]);
+  assert.equal(o.chance, "High");
+  assert.equal(o.route, "Gujarat State - Management Quota");
+});
+
+test("vacant seat (99999) is reachable", () => {
+  const [o] = gujaratOptions(merit, "SEBC", [guj({ 3: { OPEN: 99999 } })]);
+  assert.equal(o.chance, "High");
+  assert.equal(o.earliestRound, 3);
+  assert.match(o.reason, /vacant/);
+});
+
+test("rounds missing the candidate's column give Unknown, not NaN", () => {
+  const [o] = gujaratOptions(merit, "ST", [guj({ 1: { SEBC: 50 } })]);
+  assert.equal(o.chance, "Unknown");
+  assert.equal(o.ratio, null);
+});
+
+test("mccOptions uses last rank for the candidate's category", () => {
+  const rec = { college: "B. J. Medical College", stream: "General Surgery", course: "M.S. (GENERAL SURGERY)",
+    degree: "MS", quota: "All India 50%", sector: "Govt", rounds: ["2024 R3"],
+    last: { GEN: 8000, EWS: null, SEBC: 10500, SC: 20000, ST: null } };
+  const [o] = mccOptions(8839, "SEBC", [rec]);
+  assert.equal(o.chance, "High");
+  assert.equal(o.route, "MCC - All India 50%");
+  assert.match(o.reason, /10500/);
+  assert.equal(mccOptions(8839, "ST", [rec])[0].chance, "Unknown");
+});

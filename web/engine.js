@@ -48,3 +48,51 @@ export function estimateMerit(rank, category, meritMap) {
   const [cat, extraC] = interpolate(meritMap[category], rank);
   return { general, category: cat, extrapolated: extraG || extraC };
 }
+
+export const VACANT = 99999;
+
+export function label(ratio) {
+  if (ratio >= 1.15) return "High";
+  if (ratio >= 1) return "Good";
+  if (ratio >= 0.9) return "Borderline";
+  return "Low";
+}
+
+export function gujaratOptions(merit, category, records) {
+  return records.map((rec) => {
+    let best = null, earliest = null;
+    for (const [round, vals] of Object.entries(rec.last)) {
+      const tries = [["Open", vals.OPEN, merit.general]];
+      if (rec.seat === "GQ" && category !== "GEN") tries.push([category, vals[category], merit.category]);
+      for (const [lab, value, mine] of tries) {
+        if (value == null || mine == null) continue;
+        const ratio = value === VACANT ? Infinity : value / mine;
+        if (ratio >= 1 && earliest === null) earliest = Number(round);
+        if (!best || ratio > best.ratio) best = { ratio, round, lab, value, mine };
+      }
+    }
+    const reason = !best ? "No 2025 data for your category"
+      : best.value === VACANT ? `Round ${best.round} 2025: seat went vacant`
+      : `Round ${best.round} 2025 last ${best.lab} merit ${best.value}; your ${best.lab} merit ~${best.mine}`;
+    return {
+      stream: rec.stream, course: rec.course, degree: rec.degree, college: rec.college, type: rec.type,
+      route: rec.seat === "GQ" ? "Gujarat State - Govt Quota" : "Gujarat State - Management Quota",
+      chance: best ? label(best.ratio) : "Unknown", ratio: best ? best.ratio : null,
+      earliestRound: earliest, fee: rec.fee, reason,
+    };
+  });
+}
+
+export function mccOptions(rank, category, records) {
+  return records.map((rec) => {
+    const last = rec.last[category];
+    const ratio = last == null ? null : last / rank;
+    return {
+      stream: rec.stream, course: rec.course, degree: rec.degree, college: rec.college, type: rec.sector,
+      route: `MCC - ${rec.quota}`, chance: ratio == null ? "Unknown" : label(ratio), ratio,
+      earliestRound: null, fee: null,
+      reason: last == null ? "No MCC allotment data for your category"
+        : `MCC last AIR allotted to your category ${last} (${rec.rounds.join(", ")}); your AIR ${rank}`,
+    };
+  });
+}
