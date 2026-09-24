@@ -13,7 +13,7 @@ from pipeline.sources import OUT, ROOT
 
 SITE = ROOT / "site"
 WEB = ROOT / "web"
-PAGE_FILES = ["index.html", "styles.css", "app.js", "engine.js"]
+PAGE_FILES = ["index.html", "styles.css", "app.js", "engine.js", "favicon.svg"]
 DATA_FILES = ["merit_map.json", "gujarat.json", "mcc.json", "meta.json"]
 
 
