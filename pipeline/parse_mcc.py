@@ -67,7 +67,7 @@ def gujarat_records(allotments):
             ranks = [a["rank"] for a in items if _eligible(a, cat)]
             last[cat] = max(ranks) if ranks else None
         records.append({"college": names[k].split(",")[0].strip().title(), "stream": stream_of(course),
-                        "course": course, "degree": degree_of(course), "quota": quota,
+                        "course": course, "degree": degree_of(course), "quota": QUOTAS[quota][0],
                         "sector": QUOTAS[quota][1], "rounds": sorted({a["round"] for a in items}), "last": last})
     return records
 

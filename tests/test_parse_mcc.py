@@ -32,7 +32,7 @@ def test_gujarat_records_last_rank_per_category():
     recs = gujarat_records(round3_allotments(R3_ROWS) + stray_allotments(STRAY_ROWS))
     assert len(recs) == 1  # KMC Manipal is not in Gujarat; Armed Forces quota excluded
     r = recs[0]
-    assert r["quota"] == "AI" and r["sector"] == "Govt" and r["stream"] == "General Surgery"
+    assert r["quota"] == "All India 50%" and r["sector"] == "Govt" and r["stream"] == "General Surgery"
     assert r["last"] == {"GEN": 30000, "EWS": 30000, "SEBC": 30000, "SC": 30000, "ST": 30000}
 
 
