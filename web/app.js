@@ -9,6 +9,11 @@ const fmt = (n, d = 2) => n.toLocaleString("en-IN", { maximumFractionDigits: d }
 const fee = (f) => (f == null ? "" : `₹${fmt(f / 1e5, 1)} L`);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const earliest = (o) => (o.earliestRound ? `Round ${o.earliestRound}` : "");
+const feeLabel = (o) => (o.fee == null ? "" : `Fee ${fee(o.fee)}/yr`);
+const earliestLabel = (o) => (o.earliestRound ? `From ${earliest(o)}` : "");
+// degree + course, without repeating the degree when it's already spelled out in `course`
+const normWord = (s) => String(s ?? "").toLowerCase().replace(/[^a-z]/g, "");
+const courseLabel = (o) => (normWord(o.course).startsWith(normWord(o.degree)) ? o.course : `${o.degree} ${o.course}`);
 
 let data, candidate, options = [], pageSize = 30;
 
@@ -122,8 +127,11 @@ function renderOutlook(merit, insights, category, domicile) {
   el.querySelector(".outlook-meta").textContent = meta;
 }
 
+const BRANCH_PAGE = 8;
+
 function renderStreams(insights) {
-  $("streams").innerHTML = insights.map((i) => `
+  const list = $("streams"), btn = $("show-all-branches");
+  list.innerHTML = insights.map((i) => `
     <details class="card stream">
       <summary class="stream-head">
         <span class="stream-name">${esc(i.stream)}</span>
@@ -136,6 +144,14 @@ function renderStreams(insights) {
         <button class="btn btn-secondary show-stream" type="button" data-stream="${esc(i.stream)}">Show options</button>
       </div>
     </details>`).join("");
+  const hasMore = insights.length > BRANCH_PAGE;
+  btn.hidden = !hasMore;
+  list.classList.toggle("collapsed", hasMore);
+  if (hasMore) {
+    btn.dataset.expandLabel = `Show all ${insights.length} branches`;
+    btn.textContent = btn.dataset.expandLabel;
+    btn.setAttribute("aria-expanded", "false");
+  }
 }
 
 // --- filters ---
@@ -190,32 +206,37 @@ function updateChipCounts() {
 
 // --- list / table / paging ---
 function cardHtml(o) {
+  const courseLine = o.stream === o.course ? courseLabel(o) : `${courseLabel(o)} · ${o.stream}`;
   return `<article class="card option chance--${esc(o.chance)}">
     <div class="option-top">
       <h3 class="option-college">${esc(o.college)}</h3>
       <span class="chip-chance chance--${esc(o.chance)}"><span class="icon" aria-hidden="true">${CHANCE_ICON[o.chance] || "?"}</span>${esc(o.chance)}</span>
     </div>
-    <p class="option-course">${esc(o.course)} · ${esc(o.stream)}</p>
-    <ul class="meta">
-      <li>${esc(o.type)}</li>
-      <li>${esc(o.route)}</li>
-      <li>${esc(fee(o.fee))}</li>
-      <li>${esc(earliest(o))}</li>
-    </ul>
-    <details class="why"><summary>Why this chance?</summary><p>${esc(o.reason)}</p></details>
+    <p class="option-course">${esc(courseLine)}</p>
+    <div class="meta-row">
+      <ul class="meta">
+        <li><span class="sr-only">Type: </span>${esc(o.type)}</li>
+        <li><span class="sr-only">Route: </span>${esc(o.route)}</li>
+        <li>${esc(feeLabel(o))}</li>
+        <li>${esc(earliestLabel(o))}</li>
+      </ul>
+      <details class="why"><summary>Why this chance?</summary><p>${esc(o.reason)}</p></details>
+    </div>
   </article>`;
 }
 
 function rowHtml(o) {
   return `<tr>${COLS.map(([k]) => k === "chance"
     ? `<td><span class="chip-chance chance--${esc(o.chance)}"><span class="icon" aria-hidden="true">${CHANCE_ICON[o.chance] || "?"}</span>${esc(o.chance)}</span></td>`
+    : k === "course" ? `<td>${esc(courseLabel(o))}</td>`
+    : k === "reason" ? `<td title="${esc(o.reason)}"><span class="reason-clamp">${esc(o.reason)}</span></td>`
     : `<td>${esc(k === "fee" ? fee(o.fee) : k === "earliestRound" ? earliest(o) : o[k])}</td>`).join("")}</tr>`;
 }
 
 function renderList() {
   const rows = sorted(filtered());
   updateChipCounts();
-  $("count").textContent = `${rows.length} options · ${rows.filter((o) => GOVT_TYPES.has(o.type)).length} Govt-type`;
+  $("count").textContent = `${rows.length} options · ${rows.filter((o) => GOVT_TYPES.has(o.type)).length} Govt‑type`;
   const isEmpty = rows.length === 0;
   $("empty").hidden = !isEmpty;
   $("cards").hidden = isEmpty;
@@ -229,7 +250,7 @@ function renderList() {
 function downloadCsv() {
   const rows = sorted(filtered());
   const cell = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
-  const val = (o, k) => (k === "fee" ? fee(o.fee) : k === "earliestRound" ? earliest(o) : o[k]);
+  const val = (o, k) => (k === "fee" ? fee(o.fee) : k === "earliestRound" ? earliest(o) : k === "course" ? courseLabel(o) : o[k]);
   const csv = [COLS.map(([, h]) => cell(h)).join(","), ...rows.map((o) => COLS.map(([k]) => cell(val(o, k))).join(","))].join("\n");
   const a = Object.assign(document.createElement("a"), {
     href: URL.createObjectURL(new Blob([csv], { type: "text/csv" })), download: `${candidate.appNo}-gujarat-options.csv` });
@@ -255,6 +276,13 @@ $("streams").addEventListener("click", (e) => {
   pageSize = 30;
   renderList();
   $("options-title").scrollIntoView({ behavior: reducedMotion() ? "auto" : "smooth" });
+});
+$("show-all-branches").addEventListener("click", () => {
+  const list = $("streams"), btn = $("show-all-branches");
+  const expanded = btn.getAttribute("aria-expanded") === "true";
+  list.classList.toggle("collapsed", expanded);
+  btn.textContent = expanded ? btn.dataset.expandLabel : "Show fewer";
+  btn.setAttribute("aria-expanded", String(!expanded));
 });
 $("more").addEventListener("click", () => { pageSize += 30; renderList(); });
 $("clear").addEventListener("click", clearFilters);
