@@ -31,3 +31,29 @@ test("resultStats computes percentiles", () => {
 test("resultStats for absent candidate returns only status", () => {
   assert.deepEqual(resultStats(lookup("PG4", results), results.stats), { status: "ABSENT" });
 });
+
+import { estimateMerit } from "./engine.js";
+
+const meritMap = {
+  GEN: [[17, 1], [8824, 510], [8880, 511], [9000, 520]],
+  SEBC: [[133, 1], [8723, 98], [8916, 99]],
+};
+
+test("estimateMerit interpolates between 2025 points", () => {
+  assert.deepEqual(estimateMerit(8839, "SEBC", meritMap), { general: 510, category: 99, extrapolated: false });
+});
+
+test("estimateMerit for GEN has no category merit", () => {
+  assert.deepEqual(estimateMerit(8839, "GEN", meritMap), { general: 510, category: null, extrapolated: false });
+});
+
+test("estimateMerit beyond list range extrapolates without NaN", () => {
+  const m = estimateMerit(20000, "SEBC", meritMap);
+  assert.equal(m.extrapolated, true);
+  assert.ok(Number.isFinite(m.general) && Number.isFinite(m.category));
+  assert.ok(m.category > 99);
+});
+
+test("estimateMerit never returns merit below 1", () => {
+  assert.equal(estimateMerit(1, "GEN", meritMap).general, 1);
+});

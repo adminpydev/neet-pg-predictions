@@ -30,3 +30,21 @@ export function resultStats(candidate, stats) {
     sameScore: same,
   };
 }
+
+// points: [[air, merit], ...] sorted by air. Returns [merit, extrapolated].
+function interpolate(points, rank) {
+  const first = points[0], last = points[points.length - 1];
+  if (rank <= first[0]) return [Math.max(1, Math.round((first[1] * rank) / first[0])), false];
+  if (rank > last[0]) return [Math.round((last[1] * rank) / last[0]), true];
+  for (let i = 1; i < points.length; i++) {
+    const [a1, m1] = points[i - 1], [a2, m2] = points[i];
+    if (rank <= a2) return [Math.round(m1 + ((rank - a1) / (a2 - a1)) * (m2 - m1)), false];
+  }
+}
+
+export function estimateMerit(rank, category, meritMap) {
+  const [general, extraG] = interpolate(meritMap.GEN, rank);
+  if (category === "GEN") return { general, category: null, extrapolated: extraG };
+  const [cat, extraC] = interpolate(meritMap[category], rank);
+  return { general, category: cat, extrapolated: extraG || extraC };
+}
