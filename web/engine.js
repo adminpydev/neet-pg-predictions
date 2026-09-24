@@ -60,20 +60,26 @@ export function label(ratio) {
 
 export function gujaratOptions(merit, category, records) {
   return records.map((rec) => {
+    // [label, column, candidate merit] for each merit column the candidate competes on
+    const cols = [["Open", "OPEN", merit.general]];
+    if (rec.seat === "GQ" && category !== "GEN") cols.push([category, category, merit.category]);
     let best = null, earliest = null;
     for (const [round, vals] of Object.entries(rec.last)) {
-      const tries = [["Open", vals.OPEN, merit.general]];
-      if (rec.seat === "GQ" && category !== "GEN") tries.push([category, vals[category], merit.category]);
-      for (const [lab, value, mine] of tries) {
+      for (const [lab, col, mine] of cols) {
+        const value = vals[col];
         if (value == null || mine == null) continue;
         const ratio = value === VACANT ? Infinity : value / mine;
         if (ratio >= 1 && earliest === null) earliest = Number(round);
         if (!best || ratio > best.ratio) best = { ratio, round, lab, value, mine };
       }
     }
+    const perRound = cols.map(([lab, col]) => [lab, Object.entries(rec.last).filter(([, v]) => v[col] != null)
+      .map(([round, v]) => `R${round} ${v[col] === VACANT ? "vacant" : v[col]}`).join(" · ")])
+      .filter(([, txt]) => txt).map(([lab, txt]) => `${lab} ${txt}`).join("; ");
     const reason = !best ? "No 2025 data for your category"
-      : best.value === VACANT ? `Round ${best.round} 2025: seat went vacant`
-      : `Round ${best.round} 2025 last ${best.lab} merit ${best.value}; your ${best.lab} merit ~${best.mine}`;
+      : (best.value === VACANT ? `Round ${best.round} 2025: seat went vacant`
+        : `Round ${best.round} 2025 last ${best.lab} merit ${best.value}; your ${best.lab} merit ~${best.mine}`)
+        + ` (${perRound})`;
     return {
       stream: rec.stream, course: rec.course, degree: rec.degree, college: rec.college, type: rec.type,
       route: rec.seat === "GQ" ? "Gujarat State - Govt Quota" : "Gujarat State - Management Quota",
@@ -83,16 +89,20 @@ export function gujaratOptions(merit, category, records) {
   });
 }
 
+// Chance comes from 2024 main rounds (R1-R3); the 2025 stray round is used only when those are missing.
 export function mccOptions(rank, category, records) {
   return records.map((rec) => {
-    const last = rec.last[category];
+    const main = rec.last[category], stray = rec.strayLast[category];
+    const last = main ?? stray;
     const ratio = last == null ? null : last / rank;
+    const parts = [];
+    if (main != null) parts.push(`MCC 2024 R1-R3 last AIR ${main}`);
+    if (stray != null) parts.push(main != null ? `2025 stray last ${stray}` : `MCC 2025 stray last AIR ${stray}`);
     return {
       stream: rec.stream, course: rec.course, degree: rec.degree, college: rec.college, type: rec.sector,
       route: `MCC - ${rec.quota}`, chance: ratio == null ? "Unknown" : label(ratio), ratio,
       earliestRound: null, fee: null,
-      reason: last == null ? "No MCC allotment data for your category"
-        : `MCC last AIR allotted to your category ${last} (${rec.rounds.join(", ")}); your AIR ${rank}`,
+      reason: last == null ? "No MCC allotment data for your category" : [...parts, `your AIR ${rank}`].join("; "),
     };
   });
 }
@@ -101,6 +111,7 @@ export const GOVT_TYPES = new Set(["Govt", "Municipal (Govt)", "GMERS (Govt soci
 const REACHABLE = new Set(["High", "Good", "Borderline"]);
 const CHANCE_ORDER = { High: 0, Good: 1, Borderline: 2, Low: 3, Unknown: 4 };
 const typeOrder = (t) => (GOVT_TYPES.has(t) ? 0 : t === "Private" ? 1 : 2);
+const nameKey = (s) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
 
 export function insights(options) {
   const byStream = new Map();
@@ -112,12 +123,14 @@ export function insights(options) {
   for (const [stream, opts] of byStream) {
     const reach = opts.filter((o) => REACHABLE.has(o.chance));
     const govt = reach.filter((o) => GOVT_TYPES.has(o.type)).sort((a, b) => a.ratio - b.ratio);
+    const seen = new Set();
+    const topGovt = govt.filter((o) => !seen.has(nameKey(o.college)) && seen.add(nameKey(o.college)));
     const govtLow = opts.filter((o) => GOVT_TYPES.has(o.type) && o.chance === "Low").sort((a, b) => b.ratio - a.ratio);
     const fees = reach.map((o) => o.fee).filter((f) => f != null);
     out.push({
       stream, reachable: reach.length, govtReachable: govt.length,
       privateReachable: reach.filter((o) => !GOVT_TYPES.has(o.type)).length,
-      topGovt: govt.slice(0, 3).map((o) => o.college),
+      topGovt: topGovt.slice(0, 3).map((o) => o.college),
       closestMiss: govt.length === 0 && govtLow.length ? `${govtLow[0].college}: ${govtLow[0].reason}` : null,
       feeMin: fees.length ? Math.min(...fees) : null, feeMax: fees.length ? Math.max(...fees) : null,
     });

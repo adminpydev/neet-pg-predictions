@@ -74,6 +74,8 @@ test("SEBC candidate reaches seat via SEBC merit in round 1", () => {
   assert.equal(o.earliestRound, 1);
   assert.equal(o.route, "Gujarat State - Govt Quota");
   assert.match(o.reason, /SEBC merit 156/);
+  assert.match(o.reason, /R1 132/);
+  assert.match(o.reason, /Open R1 100; SEBC R1 132 · R2 156/);
 });
 
 test("far-away seat is Low", () => {
@@ -98,6 +100,7 @@ test("vacant seat (99999) is reachable", () => {
   assert.equal(o.chance, "High");
   assert.equal(o.earliestRound, 3);
   assert.match(o.reason, /vacant/);
+  assert.match(o.reason, /Open R3 vacant/);
 });
 
 test("rounds missing the candidate's column give Unknown, not NaN", () => {
@@ -109,12 +112,24 @@ test("rounds missing the candidate's column give Unknown, not NaN", () => {
 test("mccOptions uses last rank for the candidate's category", () => {
   const rec = { college: "B. J. Medical College", stream: "General Surgery", course: "M.S. (GENERAL SURGERY)",
     degree: "MS", quota: "All India 50%", sector: "Govt", rounds: ["2024 R3"],
-    last: { GEN: 8000, EWS: null, SEBC: 10500, SC: 20000, ST: null } };
+    last: { GEN: 8000, EWS: null, SEBC: 10500, SC: 20000, ST: null },
+    strayLast: { GEN: null, EWS: null, SEBC: null, SC: null, ST: null } };
   const [o] = mccOptions(8839, "SEBC", [rec]);
   assert.equal(o.chance, "High");
   assert.equal(o.route, "MCC - All India 50%");
   assert.match(o.reason, /10500/);
   assert.equal(mccOptions(8839, "ST", [rec])[0].chance, "Unknown");
+});
+
+test("mccOptions labels from main rounds, shows stray alongside", () => {
+  const rec = { college: "X", stream: "S", course: "C", degree: "MD", quota: "All India 50%", sector: "Govt",
+    rounds: ["2024 R1", "2025 Stray"], last: { GEN: 5586, SEBC: null }, strayLast: { GEN: 11249, SEBC: 9000 } };
+  const [gen] = mccOptions(8839, "GEN", [rec]);
+  assert.equal(gen.chance, "Low");
+  assert.equal(gen.reason, "MCC 2024 R1-R3 last AIR 5586; 2025 stray last 11249; your AIR 8839");
+  const [sebc] = mccOptions(8839, "SEBC", [rec]);
+  assert.equal(sebc.chance, "Good");
+  assert.match(sebc.reason, /MCC 2025 stray last AIR 9000; your AIR 8839/);
 });
 
 import { insights, predict } from "./engine.js";
@@ -142,4 +157,10 @@ test("insights summarise reachable options per stream", () => {
   assert.equal(derm.privateReachable, 1);
   assert.equal(derm.closestMiss, "A: far");
   assert.equal(derm.feeMin, 3000000);
+});
+
+test("insights topGovt lists each college once, most competitive entry", () => {
+  const o = (college, ratio) => ({ stream: "Pathology", college, type: "Govt", chance: "High", ratio, fee: null });
+  const [p] = insights([o("B. J. Medical College", 5), o("b j medical college", 2), o("C", 3)]);
+  assert.deepEqual(p.topGovt, ["b j medical college", "C"]);
 });
