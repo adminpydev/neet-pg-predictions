@@ -33,9 +33,42 @@ def test_gujarat_records_last_rank_per_category():
     assert len(recs) == 1  # KMC Manipal is not in Gujarat; Armed Forces quota excluded
     r = recs[0]
     assert r["quota"] == "All India 50%" and r["sector"] == "Govt" and r["stream"] == "General Surgery"
-    assert r["last"] == {"GEN": 30000, "EWS": 30000, "SEBC": 30000, "SC": 30000, "ST": 30000}
+    assert r["college"] == "B. J. Medical College, Ahmedabad"
+    assert r["last"] == {"GEN": None, "EWS": None, "SEBC": 12000, "SC": 15000, "ST": None}
+    assert r["strayLast"] == {"GEN": 30000, "EWS": 30000, "SEBC": 30000, "SC": 30000, "ST": 30000}
 
 
 def test_reserved_seats_only_count_for_their_category():
     recs = gujarat_records(round3_allotments(R3_ROWS))
     assert recs[0]["last"] == {"GEN": None, "EWS": None, "SEBC": 12000, "SC": 15000, "ST": None}
+
+
+def allot(inst, rank=1000, rnd="2024 R3"):
+    return {"round": rnd, "rank": rank, "quota": "AI", "inst": inst, "course": "M.D. (PATHOLOGY)",
+            "cat": "Open", "cand": "General"}
+
+
+def test_same_named_colleges_in_different_states_not_merged():
+    recs = gujarat_records([allot("Govt. Medical College, Kozhikode, Kerala, 673008", 50000),
+                            allot("Govt. Medical College, Baroda,Govt. Medical College, Baroda, Gujarat, 390001")])
+    assert [(r["college"], r["last"]["GEN"]) for r in recs] == [("Govt. Medical College, Baroda", 1000)]
+
+
+def test_gujarat_with_dash_pin_detected():
+    recs = gujarat_records([allot("GMERS MEDICAL AND Hospital, Navsari, Gujarat-396445,M G G General Hospital")])
+    assert len(recs) == 1 and recs[0]["college"].startswith("GMERS")
+
+
+def test_generic_first_segment_two_gujarat_cities_two_records():
+    recs = gujarat_records([allot("GMERS Medical College and Hospital, ,paddoc road, junagadh, Gujarat, 362001", 1),
+                            allot("GMERS Medical College and Hospital, ,Halar Road,Valsad ,Gujarat, Gujarat, 396001", 2),
+                            allot("GMERS Medical College and Hospital,", 99999, "2024 R1")])  # ambiguous: dropped
+    assert sorted((r["college"], r["last"]["GEN"]) for r in recs) == [
+        ("GMERS Medical College and Hospital, Junagadh", 1), ("GMERS Medical College and Hospital, Valsad", 2)]
+
+
+def test_short_name_needs_unique_match_across_states():
+    recs = gujarat_records([allot("Apollo Hospital, ,Bhat Gandhinagar, Gujarat, 382428", 1),
+                            allot("Apollo Hospital, ,Greams Road, Chennai, Tamil Nadu, 600006", 2),
+                            allot("Apollo Hospital,", 99999, "2024 R1")])
+    assert [r["last"]["GEN"] for r in recs] == [1]
