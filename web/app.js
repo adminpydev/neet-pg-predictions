@@ -72,7 +72,7 @@ function showResult() {
 }
 
 function renderResult(c, s) {
-  $("result").querySelector(".section-title").textContent = `${c.appNo} · Roll ${c.roll}`;
+  $("result").querySelector(".section-title").textContent = c.roll ? `${c.appNo} · Roll ${c.roll}` : c.appNo;
   const stats = $("result").querySelector(".stats"), more = $("result").querySelector(".more");
   const statusMsg = $("result").querySelector(".status-msg");
   $("predict").hidden = s.status !== "OK";

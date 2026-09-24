@@ -33,3 +33,12 @@ are published), delete the old file from `data/raw/`, and rerun `.venv/bin/pytho
 - NBEMS NEET-PG 2026 published result (PDF)
 - MCC: 2024 final allotment Round 3 (R1-R3), 2025 stray round result — mcc.nic.in
 - Gujarat ACPPGMEC 2025-26: last merit R1-R4, SEBC merit list, seats, fees — medadmgujarat.org
+
+## Deploy (GitHub Pages)
+
+    .venv/bin/python -m pipeline.publish          # builds site/ (web files + data, roll numbers removed)
+    cd site && python3 -m http.server 8000         # optional local check
+    .venv/bin/python -m pipeline.publish --push   # force-pushes site/ as a single commit to origin gh-pages
+
+Then in GitHub: Settings → Pages → Deploy from a branch → `gh-pages` / root.
+The published `results.json` contains every candidate's application number, score and rank.
