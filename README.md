@@ -41,4 +41,9 @@ are published), delete the old file from `data/raw/`, and rerun `.venv/bin/pytho
     .venv/bin/python -m pipeline.publish --push   # force-pushes site/ as a single commit to origin gh-pages
 
 Then in GitHub: Settings → Pages → Deploy from a branch → `gh-pages` / root.
+Live site: https://adminpydev.github.io/neet-pg-predictions/
+
+To update the site later (after code or data changes), run:
+
+    .venv/bin/python -m pipeline.publish --push
 The published `results.json` contains every candidate's application number, score and rank.
