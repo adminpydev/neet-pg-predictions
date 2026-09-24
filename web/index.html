@@ -3,49 +3,135 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>NEET-PG Gujarat Admission Predictor</title>
+  <title>NEET-PG 2026 · Gujarat Admission Predictor</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <main>
-    <h1>NEET-PG 2026 · Gujarat Admission Predictor</h1>
-    <p id="loading">Loading data…</p>
+  <header class="topbar">
+    <h1 class="brand">NEET-PG 2026 · Gujarat Predictor</h1>
+    <p class="tagline">Estimate your Gujarat MBBS/MD/MS admission chances from your NEET-PG 2026 result.</p>
+  </header>
 
-    <form id="form" hidden>
-      <label>Application number <input id="app" required placeholder="PG26114274" autocomplete="off"></label>
-      <label>Category
-        <select id="category">
-          <option value="GEN">General</option><option value="EWS">EWS</option>
-          <option value="SEBC">SEBC / OBC</option><option value="SC">SC</option><option value="ST">ST</option>
-        </select>
+  <main id="main">
+    <div id="loading" class="loading" role="status">
+      <span class="spinner" aria-hidden="true"></span>
+      <span>Loading results…</span>
+    </div>
+
+    <form id="form" class="card form" hidden>
+      <label class="field">
+        <span class="field-label">Application number</span>
+        <input id="app" class="input" type="text" inputmode="text" autocapitalize="characters" autocomplete="off" placeholder="PG26114274" required>
       </label>
-      <label class="check"><input type="checkbox" id="domicile" checked> Gujarat domicile</label>
-      <button type="submit">Show result</button>
+      <fieldset class="field seg">
+        <legend class="field-label">Category</legend>
+        <label class="seg-item"><input type="radio" name="category" value="GEN" checked><span>General</span></label>
+        <label class="seg-item"><input type="radio" name="category" value="EWS"><span>EWS</span></label>
+        <label class="seg-item"><input type="radio" name="category" value="SEBC"><span>SEBC / OBC</span></label>
+        <label class="seg-item"><input type="radio" name="category" value="SC"><span>SC</span></label>
+        <label class="seg-item"><input type="radio" name="category" value="ST"><span>ST</span></label>
+      </fieldset>
+      <label class="toggle">
+        <input id="domicile" type="checkbox" checked>
+        <span class="toggle-ui" aria-hidden="true"></span>
+        <span>Gujarat domicile</span>
+      </label>
+      <button class="btn btn-primary btn-block" type="submit">Show result</button>
     </form>
+
     <p id="error" class="error" role="alert"></p>
 
-    <section id="result" hidden></section>
-    <button id="predict" hidden>Predict my Gujarat options</button>
-
-    <section id="prediction" hidden>
-      <div id="merit"></div>
-      <h2>Insights</h2>
-      <div id="insights"></div>
-      <h2>All options</h2>
-      <div class="filters">
-        <select id="f-stream" aria-label="Filter by stream"><option value="">All streams</option></select>
-        <select id="f-type" aria-label="Filter by college type"><option value="">All college types</option></select>
-        <select id="f-route" aria-label="Filter by route"><option value="">All routes</option></select>
-        <select id="f-chance" aria-label="Filter by chance">
-          <option value="reach">High / Good / Borderline</option><option value="">All chances</option>
-          <option value="High">High</option><option value="Good">Good</option>
-          <option value="Borderline">Borderline</option><option value="Low">Low</option>
-        </select>
-        <button id="csv" type="button">Download CSV</button>
+    <section id="result" class="card result" hidden aria-live="polite" tabindex="-1">
+      <h2 class="section-title"></h2>
+      <div class="stats">
+        <div class="stat"><span class="stat-label">Score</span><span class="stat-value"></span></div>
+        <div class="stat"><span class="stat-label">All India Rank</span><span class="stat-value"></span></div>
+        <div class="stat"><span class="stat-label">Top %</span><span class="stat-value"></span></div>
       </div>
-      <p id="count"></p>
-      <table id="table"><thead></thead><tbody></tbody></table>
-      <details class="legend"><summary>What do High / Good / Borderline / Low mean?</summary>
+      <details class="more">
+        <summary>See percentile details</summary>
+        <dl class="kv">
+          <dt>Percentile (≤ score)</dt><dd></dd>
+          <dt>Percentile (&lt; score)</dt><dd></dd>
+          <dt>Percentile (mid-rank)</dt><dd></dd>
+          <dt>Percentile (by rank)</dt><dd></dd>
+          <dt>Candidates ahead</dt><dd></dd>
+          <dt>Same score</dt><dd></dd>
+        </dl>
+      </details>
+      <p class="status-msg" hidden></p>
+      <button id="predict" class="btn btn-primary btn-block" type="button" hidden>Predict my Gujarat options</button>
+    </section>
+
+    <section id="prediction" hidden aria-live="polite" tabindex="-1">
+      <div id="outlook" class="card outlook">
+        <p class="outlook-kicker">Your Gujarat outlook</p>
+        <p class="outlook-verdict"></p>
+        <p class="outlook-meta"></p>
+      </div>
+
+      <h2 class="section-title">Branches</h2>
+      <div id="streams" class="stream-list"></div>
+
+      <h2 class="section-title" id="options-title">All options</h2>
+      <div id="filters" class="filters">
+        <div class="chips" role="group" aria-label="Chance">
+          <button class="chip" type="button" data-chance="reach" aria-pressed="true">In reach<span class="chip-count"></span></button>
+          <button class="chip" type="button" data-chance="all" aria-pressed="false">All<span class="chip-count"></span></button>
+          <button class="chip" type="button" data-chance="High" aria-pressed="false">High<span class="chip-count"></span></button>
+          <button class="chip" type="button" data-chance="Good" aria-pressed="false">Good<span class="chip-count"></span></button>
+          <button class="chip" type="button" data-chance="Borderline" aria-pressed="false">Borderline<span class="chip-count"></span></button>
+          <button class="chip" type="button" data-chance="Low" aria-pressed="false">Low<span class="chip-count"></span></button>
+        </div>
+        <div class="filter-row">
+          <select id="f-stream" class="select" aria-label="Filter by stream"><option value="">All streams</option></select>
+          <select id="f-type" class="select" aria-label="Filter by college type"><option value="">All college types</option></select>
+          <select id="f-route" class="select" aria-label="Filter by route"><option value="">All routes</option></select>
+          <select id="f-sort" class="select" aria-label="Sort by">
+            <option value="chance">Sort: Chance</option>
+            <option value="fee-asc">Fee: low to high</option>
+            <option value="fee-desc">Fee: high to low</option>
+            <option value="college">College: A–Z</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="list-head">
+        <p id="count" class="muted"></p>
+        <button id="csv" class="btn btn-secondary" type="button">Download CSV</button>
+      </div>
+
+      <div id="cards" class="option-list"></div>
+
+      <div class="table-wrap">
+        <table id="table" class="table">
+          <caption class="sr-only">All predicted options</caption>
+          <thead>
+            <tr>
+              <th scope="col">Stream</th>
+              <th scope="col">Course</th>
+              <th scope="col">College</th>
+              <th scope="col">Type</th>
+              <th scope="col">Route</th>
+              <th scope="col">Chance</th>
+              <th scope="col">Earliest round</th>
+              <th scope="col">Fee / yr</th>
+              <th scope="col">Reason</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div id="empty" class="empty" hidden>
+        <p>No options match these filters.</p>
+        <button id="clear" class="btn btn-secondary" type="button">Clear filters</button>
+      </div>
+
+      <button id="more" class="btn btn-secondary btn-block" type="button" hidden>Show 30 more</button>
+
+      <details class="card legend">
+        <summary>What do High / Good / Borderline / Low mean?</summary>
         <p><b>High</b>: last 2025 admit was at least 15% past your position. <b>Good</b>: last admit at or a little past you.
           <b>Borderline</b>: last admit within 10% ahead of you. <b>Low</b>: seat closed well before your position.</p>
       </details>
