@@ -3,6 +3,8 @@ import { GOVT_TYPES, lookup, predict, resultStats } from "./engine.js";
 const $ = (id) => document.getElementById(id);
 const COLS = [["stream", "Stream"], ["course", "Course"], ["college", "College"], ["type", "Type"], ["route", "Route"],
   ["chance", "Chance"], ["earliestRound", "Earliest round"], ["fee", "Fee / yr"], ["reason", "Reason"]];
+// table drops Stream: the Course cell already names it; CSV keeps all columns
+const TABLE_COLS = COLS.slice(1);
 const CHANCE_ICON = { High: "✓", Good: "↑", Borderline: "~", Low: "↓", Unknown: "?" };
 const REACHABLE = new Set(["High", "Good", "Borderline"]);
 const fmt = (n, d = 2) => n.toLocaleString("en-IN", { maximumFractionDigits: d });
@@ -226,7 +228,7 @@ function cardHtml(o) {
 }
 
 function rowHtml(o) {
-  return `<tr>${COLS.map(([k]) => k === "chance"
+  return `<tr>${TABLE_COLS.map(([k]) => k === "chance"
     ? `<td><span class="chip-chance chance--${esc(o.chance)}"><span class="icon" aria-hidden="true">${CHANCE_ICON[o.chance] || "?"}</span>${esc(o.chance)}</span></td>`
     : k === "course" ? `<td>${esc(courseLabel(o))}</td>`
     : k === "reason" ? `<td title="${esc(o.reason)}"><span class="reason-clamp">${esc(o.reason)}</span></td>`

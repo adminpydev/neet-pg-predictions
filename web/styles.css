@@ -253,7 +253,7 @@ button, input, select { font: inherit; color: inherit; }
 
 .chip {
   flex: 0 0 auto;
-  min-height: 38px;
+  min-height: 44px;
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -274,7 +274,7 @@ button, input, select { font: inherit; color: inherit; }
 .filter-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space); }
 
 .select {
-  min-height: 38px;
+  min-height: 44px;
   width: 100%;
   padding: 0 10px;
   border: 1px solid var(--border);
@@ -352,21 +352,20 @@ button, input, select { font: inherit; color: inherit; }
   text-align: left;
   padding: 8px 12px;
   border-bottom: 1px solid var(--border);
+  vertical-align: top;
+  overflow-wrap: break-word;
 }
 
-/* Stream, Course, College, Type, Route, Chance, Earliest round, Fee / yr, Reason */
-.table th:nth-child(1), .table td:nth-child(1) { width: 8%; }
-.table th:nth-child(2), .table td:nth-child(2) { width: 9%; }
-.table th:nth-child(3), .table td:nth-child(3) { width: 20%; }
-.table th:nth-child(4), .table td:nth-child(4) { width: 7%; }
-.table th:nth-child(5), .table td:nth-child(5) { width: 13%; }
+/* Course, College, Type, Route, Chance, Earliest round, Fee / yr, Reason */
+.table th:nth-child(1), .table td:nth-child(1) { width: 15%; }
+.table th:nth-child(2), .table td:nth-child(2) { width: 20%; }
+.table th:nth-child(3), .table td:nth-child(3) { width: 9%; }
+.table th:nth-child(4), .table td:nth-child(4) { width: 13%; }
+.table th:nth-child(5), .table td:nth-child(5) { width: 9%; }
 .table th:nth-child(6), .table td:nth-child(6) { width: 8%; }
-.table th:nth-child(7), .table td:nth-child(7) { width: 9%; }
-.table th:nth-child(8), .table td:nth-child(8) { width: 9%; }
-.table th:nth-child(9), .table td:nth-child(9) { width: 17%; }
+.table th:nth-child(7), .table td:nth-child(7) { width: 8%; }
+.table th:nth-child(8), .table td:nth-child(8) { width: 18%; }
 
-/* College and Reason are the only columns long enough to need mid-word wrapping */
-.table td:nth-child(3), .table td:nth-child(9) { white-space: normal; overflow-wrap: anywhere; }
 
 /* clamp on an inner span, not the td itself — changing a table-cell's own
    display breaks table-layout: fixed's column sizing for that cell */
