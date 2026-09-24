@@ -24,7 +24,7 @@
 
 ## Review Focus
 
-1. Application number typed with spaces or lowercase (` pg26114274 `) → must still be found. Pinned in Task 9 (`normalizeAppNo`).
+1. Application number typed with spaces or lowercase (` pg11111111 `) → must still be found. Pinned in Task 9 (`normalizeAppNo`).
 2. Unknown application number → clear "not found" message, no crash. Pinned in Task 9 (`lookup` returns `null`).
 3. ABSENT / WITHHELD candidate → show status, no prediction. Pinned in Task 9 (`resultStats` status).
 4. Rank beyond the 2025 merit list range (e.g. ST candidate rank 200000) → estimate with `extrapolated: true`, no NaN. Pinned in Task 10.
@@ -1168,7 +1168,7 @@ def load(name):
 
 
 def test_candidate_row():
-    assert load("results.json")["rows"]["PG26114274"] == ["26661049094", 512, 8839, "OK"]
+    assert load("results.json")["rows"]["PG11111111"] == ["<roll>", 512, 8839, "OK"]
 
 
 def test_known_last_merits():
@@ -1225,7 +1225,7 @@ const results = {
 };
 
 test("normalizeAppNo trims spaces and upper-cases", () => {
-  assert.equal(normalizeAppNo("  pg 26114274 "), "PG26114274");
+  assert.equal(normalizeAppNo("  pg 11111111 "), "PG11111111");
 });
 
 test("lookup finds candidate or returns null", () => {
@@ -1590,8 +1590,8 @@ const dir = new URL("./data/", import.meta.url);
 const load = (f) => JSON.parse(readFileSync(new URL(f, dir)));
 const built = existsSync(new URL("gujarat.json", dir));
 
-test("PG26114274 SEBC Gujarat matches the manual report", { skip: !built && "run pipeline.build first" }, () => {
-  const cand = lookup("PG26114274", load("results.json"));
+test("PG11111111 SEBC Gujarat matches the manual report", { skip: !built && "run pipeline.build first" }, () => {
+  const cand = lookup("PG11111111", load("results.json"));
   const data = { meritMap: load("merit_map.json"), gujarat: load("gujarat.json"), mcc: load("mcc.json") };
   const { merit, options } = predict({ rank: cand.rank, category: "SEBC", domicile: true }, data);
   assert.deepEqual(merit, { general: 510, category: 99, extrapolated: false });
@@ -1689,7 +1689,7 @@ git commit -m "feat(engine): insights and predict entry point"
     <p id="loading">Loading data…</p>
 
     <form id="form" hidden>
-      <label>Application number <input id="app" required placeholder="PG26114274" autocomplete="off"></label>
+      <label>Application number <input id="app" required placeholder="PG11111111" autocomplete="off"></label>
       <label>Category
         <select id="category">
           <option value="GEN">General</option><option value="EWS">EWS</option>
@@ -1867,10 +1867,10 @@ load().catch((err) => { $("loading").textContent = `Could not load data (${err.m
 Run: `cd web && python3 -m http.server 8000` then open `http://localhost:8000`.
 Check, in order:
 1. Loading message disappears; form shows.
-2. Enter ` pg26114274 ` → result card: score 512, AIR 8,839, percentile (≤ score) 96.6856, candidates ahead 8,815.
+2. Enter ` pg11111111 ` → result card: score 512, AIR 8,839, percentile (≤ score) 96.6856, candidates ahead 8,815.
 3. Enter `PG99999999` → "Application number not found".
 4. Enter `PG26083665` (withheld) → status WITHHELD, no Predict button.
-5. PG26114274, SEBC, domicile on → Predict → General merit ~510, SEBC merit ~99. Insights table lists streams. Filter stream = Dermatology → SMIMER Surat High, Round 1.
+5. PG11111111, SEBC, domicile on → Predict → General merit ~510, SEBC merit ~99. Insights table lists streams. Filter stream = Dermatology → SMIMER Surat High, Round 1.
 6. Untick domicile → Predict → only `MCC - …` routes.
 7. Download CSV → file opens in Excel with the filtered rows.
 

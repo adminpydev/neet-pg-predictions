@@ -11,7 +11,7 @@ position and lists every Gujarat college/branch they can realistically get, with
 label, earliest round, fee and a plain-language reason.
 
 Success: a student gets a correct, explained shortlist in under a minute without reading
-any PDF. For candidate PG26114274 / SEBC / Gujarat domicile, the output matches the manual
+any PDF. For candidate PG11111111 / SEBC / Gujarat domicile, the output matches the manual
 report produced on 2026-09-24 (SEBC merit ~99, General merit ~510, same chance labels).
 
 ## Scope

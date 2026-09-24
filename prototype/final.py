@@ -86,7 +86,7 @@ top = GP2[gov & GP2["Chance (OBC/SEBC)"].isin(["High", "Good", "Borderline"])].g
 SS["Best Gujarat Govt options"] = top; SS = SS.fillna("").sort_values("Gujarat State - Govt/GMERS/Municipal (GQ)", ascending=False).reset_index().rename(columns={"index": "Stream"})
 
 notes = pd.DataFrame({"Item": ["Candidate", "Score / AIR", "Category", "Preference", "Gujarat merit equivalent", "Gujarat data", "MCC data", "Chance rule",
-    "Gujarat eligibility", "Not included", "Caveat"], "Detail": ["PG26114274", "512 / 8839 (top 3.4%)", "OBC (= SEBC in Gujarat state counselling)", "Gujarat first",
+    "Gujarat eligibility", "Not included", "Caveat"], "Detail": ["PG11111111", "512 / 8839 (top 3.4%)", "OBC (= SEBC in Gujarat state counselling)", "Gujarat first",
     f"In Gujarat 2025 merit list, AIR 8839 fell at General merit ~{G} and SEBC merit ~{E}. Used these to compare with Gujarat 2025 last merit.",
     "ACPPGMEC Gujarat 2025-26 Last Merit Rounds 1-4, merit lists, seat and fee lists (medadmgujarat.org)",
     "MCC 2024 Round 1-3 final allotment + 2025 stray round (mcc.nic.in). OBC can take Open or OBC seats; Deemed seats have no reservation.",
@@ -94,7 +94,7 @@ notes = pd.DataFrame({"Item": ["Candidate", "Score / AIR", "Category", "Preferen
     "Gujarat state quota (GQ/MQ) needs Gujarat domicile / eligibility per ACPPGMEC rules; SEBC seats need Gujarat SEBC certificate. MCC AIQ OBC needs central OBC-NCL certificate.",
     "Institutional (university) seats, in-service seats, NRI seats, DNB-only Gujarat rows are in data but not used for chance.",
     "Based on 2024/2025 cutoffs; 2026 will shift. Seat counts per college/branch are small (often 1-4 SEBC seats), so check seat matrix when 2026 counselling opens."]})
-out = "/Users/vedantparikh/Downloads/PG26114274 Admission Possibilities (OBC, Gujarat).xlsx"
+out = "/Users/vedantparikh/Downloads/PG11111111 Admission Possibilities (OBC, Gujarat).xlsx"
 with pd.ExcelWriter(out) as w:
     notes.to_excel(w, sheet_name="Summary", index=False)
     SS.to_excel(w, sheet_name="Stream-wise Options", index=False)

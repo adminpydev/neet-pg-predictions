@@ -8,7 +8,7 @@ const results = {
 };
 
 test("normalizeAppNo trims spaces and upper-cases", () => {
-  assert.equal(normalizeAppNo("  pg 26114274 "), "PG26114274");
+  assert.equal(normalizeAppNo("  pg 11111111 "), "PG11111111");
 });
 
 test("lookup finds candidate or returns null", () => {

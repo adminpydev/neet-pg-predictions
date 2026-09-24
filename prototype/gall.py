@@ -27,6 +27,6 @@ A["t"] = A.Type.map({"Govt": 0, "Municipal (Govt)": 1, "GMERS (Govt society)": 2
 A["c"] = A.Chance.map({"High": 0, "Good": 1, "Borderline": 2})
 A = A.sort_values(["Stream", "t", "c", "College"]).drop(columns=["t", "c"])
 A.to_pickle("gall.pkl")
-with pd.ExcelWriter("/Users/vedantparikh/Downloads/PG26114274 Admission Possibilities (OBC, Gujarat).xlsx", mode="a", engine="openpyxl", if_sheet_exists="replace") as w:
+with pd.ExcelWriter("/Users/vedantparikh/Downloads/PG11111111 Admission Possibilities (OBC, Gujarat).xlsx", mode="a", engine="openpyxl", if_sheet_exists="replace") as w:
     A.to_excel(w, sheet_name="Gujarat All Possibilities", index=False)
 print(len(A), A.Route.value_counts().to_dict())

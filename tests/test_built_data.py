@@ -12,7 +12,9 @@ def load(name):
 
 
 def test_candidate_row():
-    assert load("results.json")["rows"]["PG26114274"] == ["26661049094", 512, 8839, "OK"]
+    # reference candidate found by rank so no real application number lives in the repo
+    rows = load("results.json")["rows"]
+    assert [r[1:] for r in rows.values() if r[2] == 8839] == [[512, 8839, "OK"]]
 
 
 def test_known_last_merits():

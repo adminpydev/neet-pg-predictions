@@ -1,5 +1,5 @@
 import re, pandas as pd
-RANK, APP, SCORE = 8839, "PG26114274", 512
+RANK, APP, SCORE = 8839, "PG11111111", 512
 r = pd.read_pickle("r3.pkl"); s = pd.read_pickle("stray.pkl")
 r.columns = "rank q1 i1 c1 rem1 q2 i2 c2 rem2 q3 i3 c3 cat_allot cat_cand opt remarks".split()
 s.columns = "sno rank quota inst course cat_allot cat_cand remarks".split()
@@ -98,7 +98,7 @@ notes = pd.DataFrame({"Item": ["Candidate", "Score (out of 720)", "NEET-PG 2026 
 cols = g + ["Chance (as General)", "Rank used for chance", "Basis", "General Closing Rank", "Closing Rank (all cat)", "Opening Rank (all cat)",
             "2025 Stray General Closing", "2025 Stray Closing (all cat)", "Allotments", "Rounds"]
 S25 = A[A.src == "2025 Stray"][["rank", "Quota", "Sector", "Institute", "State", "Stream", "Degree", "cat"]].rename(columns={"rank": "Rank", "cat": "Allotted Category"}).sort_values("Rank")
-out = "/Users/vedantparikh/Downloads/PG26114274 Admission Possibilities.xlsx"
+out = "/Users/vedantparikh/Downloads/PG11111111 Admission Possibilities.xlsx"
 with pd.ExcelWriter(out) as w:
     notes.to_excel(w, sheet_name="Summary", index=False)
     SS.to_excel(w, sheet_name="Stream-wise Options", index=False)

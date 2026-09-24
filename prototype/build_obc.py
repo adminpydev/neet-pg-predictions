@@ -1,5 +1,5 @@
 import re, pandas as pd
-RANK, APP, SCORE = 8839, "PG26114274", 512
+RANK, APP, SCORE = 8839, "PG11111111", 512
 r = pd.read_pickle("r3.pkl"); s = pd.read_pickle("stray.pkl")
 r.columns = "rank q1 i1 c1 rem1 q2 i2 c2 rem2 q3 i3 c3 cat_allot cat_cand opt remarks".split()
 s.columns = "sno rank quota inst course cat_allot cat_cand remarks".split()
