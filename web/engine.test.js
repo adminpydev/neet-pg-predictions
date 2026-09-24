@@ -116,3 +116,30 @@ test("mccOptions uses last rank for the candidate's category", () => {
   assert.match(o.reason, /10500/);
   assert.equal(mccOptions(8839, "ST", [rec])[0].chance, "Unknown");
 });
+
+import { insights, predict } from "./engine.js";
+
+test("predict without Gujarat domicile has no state quota options", () => {
+  const data = { meritMap, gujarat: [guj({ 1: { OPEN: 600 } })], mcc: [] };
+  const withDom = predict({ rank: 8839, category: "SEBC", domicile: true }, data);
+  const noDom = predict({ rank: 8839, category: "SEBC", domicile: false }, data);
+  assert.equal(withDom.options.length, 1);
+  assert.equal(noDom.options.length, 0);
+  assert.deepEqual(noDom.merit, { general: 510, category: 99, extrapolated: false });
+});
+
+test("insights summarise reachable options per stream", () => {
+  const opts = [
+    { stream: "Dermatology", college: "A", type: "Govt", chance: "Low", ratio: 0.3, fee: 1, reason: "far" },
+    { stream: "Dermatology", college: "B", type: "Private", chance: "High", ratio: 3, fee: 3000000, reason: "" },
+    { stream: "Pathology", college: "C", type: "Govt", chance: "High", ratio: 5, fee: 130800, reason: "" },
+    { stream: "Pathology", college: "D", type: "Govt", chance: "Good", ratio: 1.05, fee: 130800, reason: "" },
+  ];
+  const [path, derm] = insights(opts);
+  assert.equal(path.stream, "Pathology");
+  assert.deepEqual(path.topGovt, ["D", "C"]);
+  assert.equal(derm.govtReachable, 0);
+  assert.equal(derm.privateReachable, 1);
+  assert.equal(derm.closestMiss, "A: far");
+  assert.equal(derm.feeMin, 3000000);
+});

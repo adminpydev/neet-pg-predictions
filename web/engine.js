@@ -96,3 +96,40 @@ export function mccOptions(rank, category, records) {
     };
   });
 }
+
+export const GOVT_TYPES = new Set(["Govt", "Municipal (Govt)", "GMERS (Govt society)"]);
+const REACHABLE = new Set(["High", "Good", "Borderline"]);
+const CHANCE_ORDER = { High: 0, Good: 1, Borderline: 2, Low: 3, Unknown: 4 };
+const typeOrder = (t) => (GOVT_TYPES.has(t) ? 0 : t === "Private" ? 1 : 2);
+
+export function insights(options) {
+  const byStream = new Map();
+  for (const o of options) {
+    if (!byStream.has(o.stream)) byStream.set(o.stream, []);
+    byStream.get(o.stream).push(o);
+  }
+  const out = [];
+  for (const [stream, opts] of byStream) {
+    const reach = opts.filter((o) => REACHABLE.has(o.chance));
+    const govt = reach.filter((o) => GOVT_TYPES.has(o.type)).sort((a, b) => a.ratio - b.ratio);
+    const govtLow = opts.filter((o) => GOVT_TYPES.has(o.type) && o.chance === "Low").sort((a, b) => b.ratio - a.ratio);
+    const fees = reach.map((o) => o.fee).filter((f) => f != null);
+    out.push({
+      stream, reachable: reach.length, govtReachable: govt.length,
+      privateReachable: reach.filter((o) => !GOVT_TYPES.has(o.type)).length,
+      topGovt: govt.slice(0, 3).map((o) => o.college),
+      closestMiss: govt.length === 0 && govtLow.length ? `${govtLow[0].college}: ${govtLow[0].reason}` : null,
+      feeMin: fees.length ? Math.min(...fees) : null, feeMax: fees.length ? Math.max(...fees) : null,
+    });
+  }
+  return out.sort((a, b) => b.govtReachable - a.govtReachable);
+}
+
+export function predict({ rank, category, domicile }, data) {
+  const merit = estimateMerit(rank, category, data.meritMap);
+  const options = [
+    ...(domicile ? gujaratOptions(merit, category, data.gujarat) : []),
+    ...mccOptions(rank, category, data.mcc),
+  ].sort((a, b) => typeOrder(a.type) - typeOrder(b.type) || CHANCE_ORDER[a.chance] - CHANCE_ORDER[b.chance]);
+  return { merit, options, insights: insights(options) };
+}
