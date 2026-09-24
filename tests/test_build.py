@@ -1,4 +1,5 @@
-from pipeline.build import gujarat_json, merit_json, validate
+from pipeline import sources
+from pipeline.build import GUJ_GOVT_MCC, _spot_checks, gujarat_json, merit_json, validate
 
 
 def test_gujarat_json_merges_rounds_and_drops_pwd_nri():
@@ -37,3 +38,36 @@ def test_validate_reports_problems():
     assert any("duplicate" in p for p in problems)
     assert any("GEN" in p for p in problems)
     assert any("name" in p for p in problems)
+
+
+def ok_merit(**over):
+    merit = {cat: [[1, 1], [2, 2]] for cat in sources.MERIT}
+    merit.update(over)
+    return merit
+
+
+def test_validate_passes_on_clean_merit():
+    assert validate([], ok_merit(), [], expected_rows=0) == []
+
+
+def test_validate_empty_merit_list():
+    assert "merit map SC is empty" in validate([], ok_merit(SC=[]), [], expected_rows=0)
+
+
+def test_validate_missing_merit_category():
+    merit = ok_merit()
+    del merit["ST"]
+    assert any("ST" in p and "missing" in p for p in validate([], merit, [], expected_rows=0))
+
+
+def test_validate_none_in_merit_does_not_crash():
+    problems = validate([], ok_merit(EWS=[[1, 1], [2, None], [3, 3]]), [], expected_rows=0)
+    assert any("EWS" in p for p in problems)
+
+
+def test_spot_check_requires_all_gujarat_govt_colleges_in_mcc():
+    mcc = [{"college": c, "quota": "All India 50%"} for c in GUJ_GOVT_MCC.values()]
+    mcc_problems = lambda recs: [p for p in _spot_checks({}, [], recs) if "MCC" in p]
+    assert mcc_problems(mcc) == []
+    assert mcc_problems(mcc[1:]) == [f"spot check MCC All India 50% missing {list(GUJ_GOVT_MCC)[0]}"]
+    assert len(mcc_problems([dict(r, quota="DNB") for r in mcc])) == 7

@@ -6,13 +6,18 @@ from pipeline.colleges import type_of
 from pipeline.fetch import fetch
 from pipeline.parse_gujarat import (branch_key, match_college, norm, parse_fees, parse_merit, parse_names,
                                     parse_seats, read_last_merit)
-from pipeline.parse_mcc import gujarat_records, read_tables, round3_allotments, stray_allotments
+from pipeline.parse_mcc import _norm, gujarat_records, read_tables, round3_allotments, stray_allotments
 from pipeline.parse_nbems import parse_results
 from pipeline.pdftext import pdftotext
 from pipeline.streams import degree_of, stream_of
 
 GUJ_CAT = {"OPEN": "OPEN", "EWS": "EWS", "SC": "SC", "ST": "ST", "SE": "SEBC"}
 NBEMS_ROWS = 273096
+# Gujarat govt colleges with All India 50% seats -> substring of their mcc.json name (compared normalised)
+GUJ_GOVT_MCC = {"BJMC Ahmedabad": "B. J. Medical College, Ahmedabad", "GMC Surat": "Government Medical College, Surat",
+                "GMC Baroda": "Govt. Medical College, Baroda", "GMC Bhavnagar": "Govt. Medical College, Bhavnagar",
+                "M P Shah Jamnagar": "M. P. Shah Government Medical College",
+                "PDU Rajkot": "Pandit Dindayal Upadhyay Medical College, Rajkot", "IKDRC Ahmedabad": "(IKDRC-ITS)"}
 
 
 def _clean_course(course):
@@ -54,8 +59,14 @@ def validate(results, merit, gujarat, expected_rows=NBEMS_ROWS):
         problems.append(f"NBEMS row count {len(results)} != {expected_rows}")
     if len({r["app"] for r in results}) != len(results):
         problems.append("NBEMS duplicate application numbers")
+    for cat in sources.MERIT.keys() - merit.keys():
+        problems.append(f"merit map {cat} missing")
     for cat, pts in merit.items():
-        if any(b[0] < a[0] or b[1] < a[1] for a, b in zip(pts, pts[1:])):
+        if not pts:
+            problems.append(f"merit map {cat} is empty")
+        elif any(v is None for p in pts for v in p):
+            problems.append(f"merit map {cat} has missing values")
+        elif any(b[0] < a[0] or b[1] < a[1] for a, b in zip(pts, pts[1:])):
             problems.append(f"merit map {cat} not monotonic")
     for r in gujarat:
         if r["college"] == r["code"]:
@@ -63,8 +74,12 @@ def validate(results, merit, gujarat, expected_rows=NBEMS_ROWS):
     return problems
 
 
-def _spot_checks(merit, gujarat):
+def _spot_checks(merit, gujarat, mcc):
     problems = []
+    ai = [_norm(r["college"]) for r in mcc if r["quota"] == "All India 50%"]
+    for label, name in GUJ_GOVT_MCC.items():
+        if not any(_norm(name) in c for c in ai):
+            problems.append(f"spot check MCC All India 50% missing {label}")
     amed = [r for r in gujarat if r["code"] == "AMED" and r["course"] == "Anaesthesiology" and r["seat"] == "GQ"]
     if not amed or amed[0]["last"].get("4", {}).get("OPEN") != 1102:
         problems.append("spot check AMED Anaesthesiology R4 OPEN != 1102")
@@ -104,7 +119,7 @@ def main():
     mcc = gujarat_records(round3_allotments(read_tables(raw(sources.MCC_R3)))
                           + stray_allotments(read_tables(raw(sources.MCC_STRAY))))
 
-    problems = validate(results, merit, gujarat) + _spot_checks(merit, gujarat)
+    problems = validate(results, merit, gujarat) + _spot_checks(merit, gujarat, mcc)
     if problems:
         raise SystemExit("Validation failed:\n" + "\n".join(problems))
 
