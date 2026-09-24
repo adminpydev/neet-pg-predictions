@@ -3,9 +3,23 @@
 Student enters NEET-PG application number + category, sees their 2026 result, then gets
 predicted Gujarat category merit and every Gujarat college/branch they can realistically get.
 
-Status: design phase. `prototype/` holds the throwaway analysis scripts that produced the
-first manual report (candidate PG26114274, OBC). They use hard-coded scratch paths and are
-reference only, not product code.
+Status: v1, local only. `prototype/` holds the original throwaway analysis scripts (reference only).
+
+## Run
+
+    python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+    # put the NBEMS result PDF at data/raw/nbems/NEET-PG 2026 Published Result_DS.pdf
+    .venv/bin/python -m pipeline.build          # downloads other sources, writes web/data/
+    .venv/bin/pytest                             # pipeline tests
+    node --test web/engine.test.js web/engine.data.test.js
+    cd web && python3 -m http.server 8000        # open http://localhost:8000
+
+Needs poppler (`pdftotext`) and Node 20+ (tests only).
+
+## Updating data
+
+Change URLs or paths in `pipeline/sources.py` (for example when the 2026 Gujarat merit lists
+are published), delete the old file from `data/raw/`, and rerun `python -m pipeline.build`.
 
 ## Layout
 
