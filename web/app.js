@@ -96,4 +96,4 @@ $("form").addEventListener("submit", showResult);
 $("predict").addEventListener("click", showPrediction);
 ["f-stream", "f-type", "f-route", "f-chance"].forEach((id) => $(id).addEventListener("change", renderTable));
 $("csv").addEventListener("click", downloadCsv);
-load().catch((err) => { $("loading").textContent = `Could not load data (${err.message}). Run: python -m pipeline.build`; });
+load().catch((err) => { $("loading").textContent = `Could not load data (${err.message}). Run: .venv/bin/python -m pipeline.build`; });

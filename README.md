@@ -19,7 +19,7 @@ Needs poppler (`pdftotext`) and Node 20+ (tests only).
 ## Updating data
 
 Change URLs or paths in `pipeline/sources.py` (for example when the 2026 Gujarat merit lists
-are published), delete the old file from `data/raw/`, and rerun `python -m pipeline.build`.
+are published), delete the old file from `data/raw/`, and rerun `.venv/bin/python -m pipeline.build`.
 
 ## Layout
 
