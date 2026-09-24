@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NEET-PG 2026 · Gujarat Admission Predictor</title>
+  <!-- Umami: cookieless analytics; data-domains skips localhost testing. Only button clicks are sent, never app number/category/score. -->
+  <script defer src="https://cloud.umami.is/script.js" data-website-id="be53304c-ef54-4a46-ac0e-5fc77f7f5a9a" data-domains="adminpydev.github.io"></script>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <h1 class="brand">NEET-PG 2026 · Gujarat Predictor</h1>
+    <p class="tagline">Estimate your Gujarat MBBS/MD/MS admission chances from your NEET-PG 2026 result.</p>
+  </header>
+
+  <main id="main">
+    <div id="loading" class="loading" role="status">
+      <span class="spinner" aria-hidden="true"></span>
+      <span>Loading results…</span>
+    </div>
+
+    <form id="form" class="card form" hidden>
+      <label class="field">
+        <span class="field-label">Application number</span>
+        <input id="app" class="input" type="text" inputmode="text" autocapitalize="characters" autocomplete="off" placeholder="PG11111111" required>
+      </label>
+      <fieldset class="field seg">
+        <legend class="field-label">Category</legend>
+        <label class="seg-item"><input type="radio" name="category" value="GEN" checked><span>General</span></label>
+        <label class="seg-item"><input type="radio" name="category" value="EWS"><span>EWS</span></label>
+        <label class="seg-item"><input type="radio" name="category" value="SEBC"><span>SEBC / OBC</span></label>
+        <label class="seg-item"><input type="radio" name="category" value="SC"><span>SC</span></label>
+        <label class="seg-item"><input type="radio" name="category" value="ST"><span>ST</span></label>
+      </fieldset>
+      <label class="toggle">
+        <input id="domicile" type="checkbox" checked>
+        <span class="toggle-ui" aria-hidden="true"></span>
+        <span>Gujarat domicile</span>
+      </label>
+      <button class="btn btn-primary btn-block" type="submit" data-umami-event="show-result">Show result</button>
+    </form>
+
+    <p id="error" class="error" role="alert"></p>
+
+    <section id="result" class="card result" hidden aria-live="polite" tabindex="-1">
+      <h2 class="section-title"></h2>
+      <div class="stats">
+        <div class="stat"><span class="stat-label">Score</span><span class="stat-value"></span></div>
+        <div class="stat"><span class="stat-label" title="All India Rank" aria-label="All India Rank">AIR</span><span class="stat-value"></span></div>
+        <div class="stat"><span class="stat-label">Top %</span><span class="stat-value"></span></div>
+      </div>
+      <details class="more">
+        <summary>See percentile details</summary>
+        <dl class="kv">
+          <dt>Percentile (≤ score)</dt><dd></dd>
+          <dt>Percentile (&lt; score)</dt><dd></dd>
+          <dt>Percentile (mid-rank)</dt><dd></dd>
+          <dt>Percentile (by rank)</dt><dd></dd>
+          <dt>Candidates ahead</dt><dd></dd>
+          <dt>Same score</dt><dd></dd>
+        </dl>
+      </details>
+      <p class="status-msg" hidden></p>
+      <button id="predict" class="btn btn-primary btn-block" type="button" data-umami-event="predict" hidden>Predict my Gujarat options</button>
+    </section>
+
+    <section id="prediction" hidden aria-live="polite" tabindex="-1">
+      <div id="outlook" class="card outlook">
+        <p class="outlook-kicker">Your Gujarat outlook</p>
+        <p class="outlook-verdict"></p>
+        <p class="outlook-meta"></p>
+      </div>
+
+      <h2 class="section-title">Branches</h2>
+      <div id="streams" class="stream-list"></div>
+      <button id="show-all-branches" class="btn btn-secondary btn-block show-all-branches" type="button" hidden>Show all branches</button>
+
+      <h2 class="section-title" id="options-title">All options</h2>
+      <div id="filters" class="filters">
+        <div class="chips" role="group" aria-label="Chance">
+          <button class="chip" type="button" data-chance="reach" aria-pressed="true">In reach<span class="chip-count"></span></button>
+          <button class="chip" type="button" data-chance="all" aria-pressed="false">All<span class="chip-count"></span></button>
+          <button class="chip" type="button" data-chance="High" aria-pressed="false">High<span class="chip-count"></span></button>
+          <button class="chip" type="button" data-chance="Good" aria-pressed="false">Good<span class="chip-count"></span></button>
+          <button class="chip" type="button" data-chance="Borderline" aria-pressed="false">Borderline<span class="chip-count"></span></button>
+          <button class="chip" type="button" data-chance="Low" aria-pressed="false">Low<span class="chip-count"></span></button>
+        </div>
+        <div class="filter-row">
+          <select id="f-stream" class="select" aria-label="Filter by stream"><option value="">All streams</option></select>
+          <select id="f-type" class="select" aria-label="Filter by college type"><option value="">All college types</option></select>
+          <select id="f-route" class="select" aria-label="Filter by route"><option value="">All routes</option></select>
+          <select id="f-sort" class="select" aria-label="Sort by">
+            <option value="chance">Sort: Chance</option>
+            <option value="fee-asc">Fee: low to high</option>
+            <option value="fee-desc">Fee: high to low</option>
+            <option value="college">College: A–Z</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="list-head">
+        <p id="count" class="muted"></p>
+        <button id="csv" class="btn btn-secondary" type="button" data-umami-event="download-csv">Download CSV</button>
+      </div>
+
+      <div id="cards" class="option-list"></div>
+
+      <div class="table-wrap">
+        <table id="table" class="table">
+          <caption class="sr-only">All predicted options</caption>
+          <thead>
+            <tr>
+              <th scope="col">Course</th>
+              <th scope="col">College</th>
+              <th scope="col">Type</th>
+              <th scope="col">Route</th>
+              <th scope="col">Chance</th>
+              <th scope="col">Earliest round</th>
+              <th scope="col">Fee / yr</th>
+              <th scope="col">Reason</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div id="empty" class="empty" hidden>
+        <p>No options match these filters.</p>
+        <button id="clear" class="btn btn-secondary" type="button">Clear filters</button>
+      </div>
+
+      <button id="more" class="btn btn-secondary btn-block" type="button" hidden>Show 30 more</button>
+
+      <details class="card legend">
+        <summary>What do High / Good / Borderline / Low mean?</summary>
+        <p><b>High</b>: last 2025 admit was at least 15% past your position. <b>Good</b>: last admit at or a little past you.
+          <b>Borderline</b>: last admit within 10% ahead of you. <b>Low</b>: seat closed well before your position.</p>
+      </details>
+      <p class="disclaimer">Estimates from Gujarat 2025-26 state cutoffs and MCC 2024/2025 cutoffs. Not a guarantee.
+        Check your real merit number in the official 2026 Gujarat merit list.</p>
+    </section>
+  </main>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
