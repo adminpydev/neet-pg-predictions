@@ -2,7 +2,7 @@ import { GOVT_TYPES, lookup, predict, resultStats } from "./engine.js";
 
 const $ = (id) => document.getElementById(id);
 const COLS = [["stream", "Stream"], ["course", "Course"], ["college", "College"], ["type", "Type"], ["route", "Route"],
-  ["chance", "Chance"], ["earliestRound", "Earliest round"], ["fee", "Fee / yr"], ["reason", "Reason"]];
+  ["chance", "Chance"], ["earliestRound", "Earliest round"], ["fee", "Fee / yr"], ["closing", "Closing AIR"]];
 // table drops Stream: the Course cell already names it; CSV keeps all columns
 const TABLE_COLS = COLS.slice(1);
 const CHANCE_ICON = { High: "✓", Good: "↑", Borderline: "~", Low: "↓", Unknown: "?" };
@@ -60,15 +60,40 @@ function applyUrlParams() {
 function showResult() {
   $("error").textContent = "";
   $("prediction").hidden = true;
-  candidate = lookup($("app").value, data.results);
-  if (!candidate) {
-    $("result").hidden = true;
-    $("predict").hidden = true;
-    $("error").textContent = "Application number not found in the NEET-PG 2026 result.";
+  const raw = $("app").value.trim();
+  // a plain number is an AIR: skip the result lookup and predict straight away
+  if (/^\d+$/.test(raw)) {
+    const rank = Number(raw), max = data.results.stats.maxRank;
+    if (rank < 1 || rank > max) return fail(`Enter an AIR between 1 and ${fmt(max, 0)}.`);
+    candidate = { appNo: null, roll: "", score: null, rank, status: "OK" };
+    renderAirOnly(candidate);
+    reveal($("result"));
+    showPrediction();
     return;
   }
+  candidate = lookup(raw, data.results);
+  if (!candidate) return fail("Application number not found in the NEET-PG 2026 result.");
   renderResult(candidate, resultStats(candidate, data.results.stats));
   reveal($("result"));
+}
+
+function fail(msg) {
+  $("result").hidden = true;
+  $("predict").hidden = true;
+  $("error").textContent = msg;
+}
+
+function renderAirOnly(c) {
+  $("result").querySelector(".section-title").textContent = `AIR ${fmt(c.rank, 0)} (entered directly)`;
+  const stats = $("result").querySelector(".stats");
+  stats.hidden = false;
+  $("result").querySelector(".more").hidden = true;
+  $("result").querySelector(".status-msg").hidden = true;
+  const [scoreEl, rankEl, topEl] = stats.querySelectorAll(".stat-value");
+  scoreEl.textContent = "—";
+  rankEl.textContent = fmt(c.rank, 0);
+  topEl.textContent = `${fmt((c.rank / data.results.stats.appeared) * 100, 2)}%`;
+  $("predict").hidden = false;
 }
 
 function renderResult(c, s) {
@@ -228,6 +253,38 @@ function updateChipCounts() {
 }
 
 // --- list / table / paging ---
+// --- AIR verdict + round-by-round cutoffs ---
+const air = (n) => `~${fmt(Math.round(n / 10) * 10, 0)}`;
+
+function verdict(o) {
+  const c = o.closing;
+  if (!c) return { cls: "none", text: "No cutoff data for your category" };
+  if (c.vacant) return { cls: "ahead", text: `Seat went vacant in ${c.round} — open to anyone eligible` };
+  if (c.air == null) return { cls: "none", text: o.reason };
+  const diff = c.air - candidate.rank;
+  return diff >= 0
+    ? { cls: "ahead", text: `Went up to AIR ${air(c.air)} (${c.name}, ${c.round}) · you're ${air(diff)} ranks ahead` }
+    : { cls: "short", text: `Closed at AIR ${air(c.air)} (${c.name}, ${c.round}) · ${air(-diff)} ranks short` };
+}
+
+function roundsTable(o) {
+  if (!o.rounds || !o.rounds.length) return `<p class="muted">No round data.</p>`;
+  const names = o.rounds[0].cols.map((c) => c.name);
+  const cell = (c) => c.merit == null && c.air == null ? `<td class="r-none">—</td>`
+    : `<td class="${c.reached ? "r-hit" : "r-miss"}">${c.vacant ? "Vacant" : c.air == null ? `merit ${c.merit}` : `AIR ${air(c.air)}`}<span class="r-mark" aria-label="${c.reached ? "you would get it" : "out of reach"}">${c.reached ? " ✓" : ""}</span></td>`;
+  return `<table class="rounds"><thead><tr><th scope="col">Round</th>${names.map((n) => `<th scope="col">${esc(n)} closing</th>`).join("")}</tr></thead>
+    <tbody>${o.rounds.map((r) => `<tr><th scope="row">${esc(r.round)}</th>${r.cols.map(cell).join("")}</tr>`).join("")}</tbody></table>
+    <p class="muted rounds-note">Your AIR ${fmt(candidate.rank, 0)}. ✓ = you'd have got it that round. Gujarat merit cutoffs converted to AIR using 2025 merit lists.</p>`;
+}
+
+const closingShort = (o) => {
+  const c = o.closing;
+  return !c ? "—" : c.vacant ? `Vacant (${c.round})` : c.air == null ? "—" : `${c.name} ${air(c.air)} (${c.round})`;
+};
+
+const roundsText = (o) => (o.rounds || []).flatMap((r) => r.cols.map((c) =>
+  `${r.round} ${c.name} ${c.vacant ? "vacant" : c.air == null ? "-" : `AIR ${Math.round(c.air)}`}${c.reached ? " (in reach)" : ""}`)).join("; ");
+
 function cardHtml(o) {
   const courseLine = o.stream === o.course ? courseLabel(o) : `${courseLabel(o)} · ${o.stream}`;
   return `<article class="card option chance--${esc(o.chance)}">
@@ -243,8 +300,9 @@ function cardHtml(o) {
         <li>${esc(feeLabel(o))}</li>
         <li>${esc(earliestLabel(o))}</li>
       </ul>
-      <details class="why"><summary>Why this chance?</summary><p>${esc(o.reason)}</p></details>
     </div>
+    <p class="verdict verdict--${verdict(o).cls}">${esc(verdict(o).text)}</p>
+    <details class="why"><summary>Round-by-round cutoffs</summary>${roundsTable(o)}</details>
   </article>`;
 }
 
@@ -252,7 +310,7 @@ function rowHtml(o) {
   return `<tr>${TABLE_COLS.map(([k]) => k === "chance"
     ? `<td><span class="chip-chance chance--${esc(o.chance)}"><span class="icon" aria-hidden="true">${CHANCE_ICON[o.chance] || "?"}</span>${esc(o.chance)}</span></td>`
     : k === "course" ? `<td>${esc(courseLabel(o))}</td>`
-    : k === "reason" ? `<td title="${esc(o.reason)}"><span class="reason-clamp">${esc(o.reason)}</span></td>`
+    : k === "closing" ? `<td class="verdict--${verdict(o).cls}" title="${esc(verdict(o).text)}">${esc(closingShort(o))}</td>`
     : `<td>${esc(k === "fee" ? fee(o.fee) : k === "earliestRound" ? earliest(o) : o[k])}</td>`).join("")}</tr>`;
 }
 
@@ -273,10 +331,12 @@ function renderList() {
 function downloadCsv() {
   const rows = sorted(filtered());
   const cell = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
-  const val = (o, k) => (k === "fee" ? fee(o.fee) : k === "earliestRound" ? earliest(o) : k === "course" ? courseLabel(o) : o[k]);
-  const csv = [COLS.map(([, h]) => cell(h)).join(","), ...rows.map((o) => COLS.map(([k]) => cell(val(o, k))).join(","))].join("\n");
+  const val = (o, k) => (k === "fee" ? fee(o.fee) : k === "earliestRound" ? earliest(o) : k === "course" ? courseLabel(o)
+    : k === "closing" ? verdict(o).text : o[k]);
+  const csv = [[...COLS.map(([, h]) => h), "Rounds"].map(cell).join(","),
+    ...rows.map((o) => [...COLS.map(([k]) => val(o, k)), roundsText(o)].map(cell).join(","))].join("\n");
   const a = Object.assign(document.createElement("a"), {
-    href: URL.createObjectURL(new Blob([csv], { type: "text/csv" })), download: `${candidate.appNo}-gujarat-options.csv` });
+    href: URL.createObjectURL(new Blob([csv], { type: "text/csv" })), download: `${candidate.appNo || `AIR-${candidate.rank}`}-gujarat-options.csv` });
   a.click();
   URL.revokeObjectURL(a.href);
 }

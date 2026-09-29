@@ -42,6 +42,17 @@ function interpolate(points, rank) {
   }
 }
 
+// Inverse of interpolate: Gujarat merit number -> equivalent 2025 AIR (same lists, same assumption).
+export function meritToAir(points, merit) {
+  const first = points[0], last = points[points.length - 1];
+  if (merit <= first[1]) return Math.max(1, Math.round((first[0] * merit) / first[1]));
+  if (merit > last[1]) return Math.round((last[0] * merit) / last[1]);
+  for (let i = 1; i < points.length; i++) {
+    const [a1, m1] = points[i - 1], [a2, m2] = points[i];
+    if (merit <= m2) return m2 === m1 ? a2 : Math.round(a1 + ((merit - m1) / (m2 - m1)) * (a2 - a1));
+  }
+}
+
 export function estimateMerit(rank, category, meritMap) {
   const [general, extraG] = interpolate(meritMap.GEN, rank);
   if (category === "GEN") return { general, category: null, extrapolated: extraG };
@@ -58,7 +69,8 @@ export function label(ratio) {
   return "Low";
 }
 
-export function gujaratOptions(merit, category, records) {
+// ctx {rank, meritMap} is optional; with it every cutoff also gets an AIR equivalent.
+export function gujaratOptions(merit, category, records, ctx = null) {
   return records.map((rec) => {
     // [label, column, candidate merit] for each merit column the candidate competes on
     const cols = [["Open", "OPEN", merit.general]];
@@ -80,9 +92,20 @@ export function gujaratOptions(merit, category, records) {
       : (best.value === VACANT ? `Round ${best.round} 2025: seat went vacant`
         : `Round ${best.round} 2025 last ${best.lab} merit ${best.value}; your ${best.lab} merit ~${best.mine}`)
         + ` (${perRound})`;
+    const toAir = (col, value) => (!ctx || value === VACANT ? null
+      : meritToAir(col === "OPEN" ? ctx.meritMap.GEN : ctx.meritMap[col], value));
+    const rounds = Object.entries(rec.last).map(([round, v]) => ({
+      round: `R${round}`,
+      cols: cols.map(([lab, col, mine]) => ({
+        name: lab, merit: v[col] ?? null, vacant: v[col] === VACANT, air: v[col] == null ? null : toAir(col, v[col]),
+        reached: v[col] != null && mine != null && (v[col] === VACANT || v[col] >= mine),
+      })),
+    }));
+    const closing = best && { name: best.lab, air: toAir(best.lab === "Open" ? "OPEN" : category, best.value),
+      vacant: best.value === VACANT, round: `R${best.round}` };
     return {
       stream: rec.stream, course: rec.course, degree: rec.degree, college: rec.college, type: rec.type,
-      route: rec.seat === "GQ" ? "Gujarat State - Govt Quota" : "Gujarat State - Management Quota",
+      route: rec.seat === "GQ" ? "Gujarat State - Govt Quota" : "Gujarat State - Management Quota", rounds, closing,
       chance: best ? label(best.ratio) : "Unknown", ratio: best ? best.ratio : null,
       earliestRound: earliest, fee: rec.fee, reason,
     };
@@ -98,7 +121,12 @@ export function mccOptions(rank, category, records) {
     const parts = [];
     if (main != null) parts.push(`MCC 2024 R1-R3 last AIR ${main}`);
     if (stray != null) parts.push(main != null ? `2025 stray last ${stray}` : `MCC 2025 stray last AIR ${stray}`);
+    const catName = category === "GEN" ? "Open" : category;
+    const rounds = [["2024 R1–R3", main], ["2025 stray", stray]].filter(([, v]) => v != null)
+      .map(([round, air]) => ({ round, cols: [{ name: catName, merit: null, vacant: false, air, reached: air >= rank }] }));
+    const closing = last == null ? null : { name: catName, air: last, vacant: false, round: main != null ? "2024 R1–R3" : "2025 stray" };
     return {
+      rounds, closing,
       stream: rec.stream, course: rec.course, degree: rec.degree, college: rec.college, type: rec.sector,
       route: `MCC - ${rec.quota}`, chance: ratio == null ? "Unknown" : label(ratio), ratio,
       earliestRound: null, fee: null,
@@ -141,7 +169,7 @@ export function insights(options) {
 export function predict({ rank, category, domicile }, data) {
   const merit = estimateMerit(rank, category, data.meritMap);
   const options = [
-    ...(domicile ? gujaratOptions(merit, category, data.gujarat) : []),
+    ...(domicile ? gujaratOptions(merit, category, data.gujarat, { rank, meritMap: data.meritMap }) : []),
     ...mccOptions(rank, category, data.mcc),
   ].sort((a, b) => typeOrder(a.type) - typeOrder(b.type) || CHANCE_ORDER[a.chance] - CHANCE_ORDER[b.chance]);
   return { merit, options, insights: insights(options) };

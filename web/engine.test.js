@@ -164,3 +164,31 @@ test("insights topGovt lists each college once, most competitive entry", () => {
   const [p] = insights([o("B. J. Medical College", 5), o("b j medical college", 2), o("C", 3)]);
   assert.deepEqual(p.topGovt, ["b j medical college", "C"]);
 });
+
+import { meritToAir } from "./engine.js";
+
+test("meritToAir inverts the merit map", () => {
+  assert.equal(meritToAir(meritMap.SEBC, 98), 8723);
+  assert.equal(meritToAir(meritMap.SEBC, 99), 8916);
+  assert.ok(meritToAir(meritMap.SEBC, 200) > 8916);
+});
+
+test("gujaratOptions gives per-round AIR and closing verdict when ctx given", () => {
+  const [o] = gujaratOptions(merit, "SEBC", [guj({ 1: { OPEN: 100, SEBC: 98 }, 2: { SEBC: 99 }, 4: { OPEN: 99999 } })],
+    { rank: 8839, meritMap });
+  assert.deepEqual(o.rounds.map((r) => r.round), ["R1", "R2", "R4"]);
+  const r1 = o.rounds[0].cols;
+  assert.equal(r1[1].name, "SEBC");
+  assert.equal(r1[1].air, 8723);
+  assert.equal(r1[1].reached, false);
+  assert.equal(o.rounds[2].cols[0].vacant, true);
+  assert.equal(o.closing.vacant, true);
+});
+
+test("mccOptions gives rounds with main and stray AIR", () => {
+  const rec = { college: "X", stream: "S", course: "C", degree: "MD", quota: "All India 50%", sector: "Govt",
+    rounds: ["2024 R3"], last: { SEBC: 10500 }, strayLast: { SEBC: 12000 } };
+  const [o] = mccOptions(8839, "SEBC", [rec]);
+  assert.deepEqual(o.rounds.map((r) => [r.round, r.cols[0].air, r.cols[0].reached]), [["2024 R1–R3", 10500, true], ["2025 stray", 12000, true]]);
+  assert.deepEqual(o.closing, { name: "SEBC", air: 10500, vacant: false, round: "2024 R1–R3" });
+});
