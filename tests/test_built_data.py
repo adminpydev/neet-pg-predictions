@@ -11,10 +11,12 @@ def load(name):
     return json.loads((OUT / name).read_text())
 
 
-def test_candidate_row():
-    # reference candidate found by rank so no real application number lives in the repo
-    rows = load("results.json")["rows"]
-    assert [r[1:] for r in rows.values() if r[2] == 8839] == [[512, 8839, "OK"]]
+def test_results_shape():
+    # no individual candidate is referenced in the repo; check structure only
+    results = load("results.json")
+    ranked = [r for r in results["rows"].values() if r[3] == "OK"]
+    assert len(results["rows"]) == 273096 and len(ranked) == results["stats"]["appeared"]
+    assert min(r[2] for r in ranked) == 1
 
 
 def test_known_last_merits():

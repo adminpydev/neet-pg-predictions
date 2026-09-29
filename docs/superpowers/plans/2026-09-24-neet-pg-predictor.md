@@ -1168,7 +1168,7 @@ def load(name):
 
 
 def test_candidate_row():
-    assert load("results.json")["rows"]["PG11111111"] == ["<roll>", 512, 8839, "OK"]
+    assert load("results.json")["rows"]["PG11111111"] == ["<roll>", "<score>", 8850, "OK"]
 
 
 def test_known_last_merits():
@@ -1326,11 +1326,11 @@ const meritMap = {
 };
 
 test("estimateMerit interpolates between 2025 points", () => {
-  assert.deepEqual(estimateMerit(8839, "SEBC", meritMap), { general: 510, category: 99, extrapolated: false });
+  assert.deepEqual(estimateMerit(8850, "SEBC", meritMap), { general: 510, category: 99, extrapolated: false });
 });
 
 test("estimateMerit for GEN has no category merit", () => {
-  assert.deepEqual(estimateMerit(8839, "GEN", meritMap), { general: 510, category: null, extrapolated: false });
+  assert.deepEqual(estimateMerit(8850, "GEN", meritMap), { general: 510, category: null, extrapolated: false });
 });
 
 test("estimateMerit beyond list range extrapolates without NaN", () => {
@@ -1454,11 +1454,11 @@ test("mccOptions uses last rank for the candidate's category", () => {
   const rec = { college: "B. J. Medical College", stream: "General Surgery", course: "M.S. (GENERAL SURGERY)",
     degree: "MS", quota: "All India 50%", sector: "Govt", rounds: ["2024 R3"],
     last: { GEN: 8000, EWS: null, SEBC: 10500, SC: 20000, ST: null } };
-  const [o] = mccOptions(8839, "SEBC", [rec]);
+  const [o] = mccOptions(8850, "SEBC", [rec]);
   assert.equal(o.chance, "High");
   assert.equal(o.route, "MCC - All India 50%");
   assert.match(o.reason, /10500/);
-  assert.equal(mccOptions(8839, "ST", [rec])[0].chance, "Unknown");
+  assert.equal(mccOptions(8850, "ST", [rec])[0].chance, "Unknown");
 });
 ```
 
@@ -1555,8 +1555,8 @@ import { insights, predict } from "./engine.js";
 
 test("predict without Gujarat domicile has no state quota options", () => {
   const data = { meritMap, gujarat: [guj({ 1: { OPEN: 600 } })], mcc: [] };
-  const withDom = predict({ rank: 8839, category: "SEBC", domicile: true }, data);
-  const noDom = predict({ rank: 8839, category: "SEBC", domicile: false }, data);
+  const withDom = predict({ rank: 8850, category: "SEBC", domicile: true }, data);
+  const noDom = predict({ rank: 8850, category: "SEBC", domicile: false }, data);
   assert.equal(withDom.options.length, 1);
   assert.equal(noDom.options.length, 0);
   assert.deepEqual(noDom.merit, { general: 510, category: 99, extrapolated: false });
@@ -1867,7 +1867,7 @@ load().catch((err) => { $("loading").textContent = `Could not load data (${err.m
 Run: `cd web && python3 -m http.server 8000` then open `http://localhost:8000`.
 Check, in order:
 1. Loading message disappears; form shows.
-2. Enter ` pg11111111 ` → result card: score 512, AIR 8,839, percentile (≤ score) 96.6856, candidates ahead 8,815.
+2. Enter ` pg11111111 ` → result card: score 512, AIR <rank>, percentile (≤ score) 96.6856, candidates ahead 8,815.
 3. Enter `PG99999999` → "Application number not found".
 4. Enter `PG26083665` (withheld) → status WITHHELD, no Predict button.
 5. PG11111111, SEBC, domicile on → Predict → General merit ~510, SEBC merit ~99. Insights table lists streams. Filter stream = Dermatology → SMIMER Surat High, Round 1.

@@ -21,7 +21,7 @@ st = pd.DataFrame({"Stream": st.Course.map(stream_of), "Course": st.Course, "Col
 m = C[(C.State == "Gujarat") & C["Chance (OBC)"].isin(["High", "Good", "Borderline"])].copy()
 m = pd.DataFrame({"Stream": m.Stream, "Course": m.Stream + " (" + m.Degree + ")", "College": m.Institute.str.title(), "Type": m.Sector,
     "Route": "MCC - " + m.Quota, "Chance": m["Chance (OBC)"], "Earliest round": m.Rounds.fillna("2025 Stray"), "Fee": "see college",
-    "Reason": "Last OBC-eligible AIR allotted " + m["Rank used for chance"].astype(int).astype(str) + " (MCC 2024/2025) vs your AIR 8839"})
+    "Reason": "Last OBC-eligible AIR allotted " + m["Rank used for chance"].astype(int).astype(str) + " (MCC 2024/2025) vs your AIR 8850"})
 A = pd.concat([st, m])
 A["t"] = A.Type.map({"Govt": 0, "Municipal (Govt)": 1, "GMERS (Govt society)": 2, "DNB Hospital": 4, "Private (Deemed)": 5}).fillna(3)
 A["c"] = A.Chance.map({"High": 0, "Good": 1, "Borderline": 2})

@@ -40,11 +40,11 @@ const meritMap = {
 };
 
 test("estimateMerit interpolates between 2025 points", () => {
-  assert.deepEqual(estimateMerit(8839, "SEBC", meritMap), { general: 510, category: 99, extrapolated: false });
+  assert.deepEqual(estimateMerit(8850, "SEBC", meritMap), { general: 510, category: 99, extrapolated: false });
 });
 
 test("estimateMerit for GEN has no category merit", () => {
-  assert.deepEqual(estimateMerit(8839, "GEN", meritMap), { general: 510, category: null, extrapolated: false });
+  assert.deepEqual(estimateMerit(8850, "GEN", meritMap), { general: 510, category: null, extrapolated: false });
 });
 
 test("estimateMerit beyond list range extrapolates without NaN", () => {
@@ -114,30 +114,30 @@ test("mccOptions uses last rank for the candidate's category", () => {
     degree: "MS", quota: "All India 50%", sector: "Govt", rounds: ["2024 R3"],
     last: { GEN: 8000, EWS: null, SEBC: 10500, SC: 20000, ST: null },
     strayLast: { GEN: null, EWS: null, SEBC: null, SC: null, ST: null } };
-  const [o] = mccOptions(8839, "SEBC", [rec]);
+  const [o] = mccOptions(8850, "SEBC", [rec]);
   assert.equal(o.chance, "High");
   assert.equal(o.route, "MCC - All India 50%");
   assert.match(o.reason, /10500/);
-  assert.equal(mccOptions(8839, "ST", [rec])[0].chance, "Unknown");
+  assert.equal(mccOptions(8850, "ST", [rec])[0].chance, "Unknown");
 });
 
 test("mccOptions labels from main rounds, shows stray alongside", () => {
   const rec = { college: "X", stream: "S", course: "C", degree: "MD", quota: "All India 50%", sector: "Govt",
     rounds: ["2024 R1", "2025 Stray"], last: { GEN: 5586, SEBC: null }, strayLast: { GEN: 11249, SEBC: 9000 } };
-  const [gen] = mccOptions(8839, "GEN", [rec]);
+  const [gen] = mccOptions(8850, "GEN", [rec]);
   assert.equal(gen.chance, "Low");
-  assert.equal(gen.reason, "MCC 2024 R1-R3 last AIR 5586; 2025 stray last 11249; your AIR 8839");
-  const [sebc] = mccOptions(8839, "SEBC", [rec]);
+  assert.equal(gen.reason, "MCC 2024 R1-R3 last AIR 5586; 2025 stray last 11249; your AIR 8850");
+  const [sebc] = mccOptions(8850, "SEBC", [rec]);
   assert.equal(sebc.chance, "Good");
-  assert.match(sebc.reason, /MCC 2025 stray last AIR 9000; your AIR 8839/);
+  assert.match(sebc.reason, /MCC 2025 stray last AIR 9000; your AIR 8850/);
 });
 
 import { insights, predict } from "./engine.js";
 
 test("predict without Gujarat domicile has no state quota options", () => {
   const data = { meritMap, gujarat: [guj({ 1: { OPEN: 600 } })], mcc: [] };
-  const withDom = predict({ rank: 8839, category: "SEBC", domicile: true }, data);
-  const noDom = predict({ rank: 8839, category: "SEBC", domicile: false }, data);
+  const withDom = predict({ rank: 8850, category: "SEBC", domicile: true }, data);
+  const noDom = predict({ rank: 8850, category: "SEBC", domicile: false }, data);
   assert.equal(withDom.options.length, 1);
   assert.equal(noDom.options.length, 0);
   assert.deepEqual(noDom.merit, { general: 510, category: 99, extrapolated: false });
@@ -175,7 +175,7 @@ test("meritToAir inverts the merit map", () => {
 
 test("gujaratOptions gives per-round AIR and closing verdict when ctx given", () => {
   const [o] = gujaratOptions(merit, "SEBC", [guj({ 1: { OPEN: 100, SEBC: 98 }, 2: { SEBC: 99 }, 4: { OPEN: 99999 } })],
-    { rank: 8839, meritMap });
+    { rank: 8850, meritMap });
   assert.deepEqual(o.rounds.map((r) => r.round), ["R1", "R2", "R4"]);
   const r1 = o.rounds[0].cols;
   assert.equal(r1[1].name, "SEBC");
@@ -188,7 +188,7 @@ test("gujaratOptions gives per-round AIR and closing verdict when ctx given", ()
 test("mccOptions gives rounds with main and stray AIR", () => {
   const rec = { college: "X", stream: "S", course: "C", degree: "MD", quota: "All India 50%", sector: "Govt",
     rounds: ["2024 R3"], last: { SEBC: 10500 }, strayLast: { SEBC: 12000 } };
-  const [o] = mccOptions(8839, "SEBC", [rec]);
+  const [o] = mccOptions(8850, "SEBC", [rec]);
   assert.deepEqual(o.rounds.map((r) => [r.round, r.cols[0].air, r.cols[0].reached]), [["2024 R1–R3", 10500, true], ["2025 stray", 12000, true]]);
   assert.deepEqual(o.closing, { name: "SEBC", air: 10500, vacant: false, round: "2024 R1–R3" });
 });

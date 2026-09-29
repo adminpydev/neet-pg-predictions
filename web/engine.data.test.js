@@ -7,9 +7,9 @@ const dir = new URL("./data/", import.meta.url);
 const load = (f) => JSON.parse(readFileSync(new URL(f, dir)));
 const built = existsSync(new URL("gujarat.json", dir));
 
-test("AIR 8839 SEBC Gujarat matches the manual report", { skip: !built && "run pipeline.build first" }, () => {
-  // reference candidate found by rank so no real application number lives in the repo
-  const cand = { rank: Object.values(load("results.json").rows).find((r) => r[2] === 8839)[2] };
+test("AIR 8850 SEBC Gujarat reference prediction", { skip: !built && "run pipeline.build first" }, () => {
+  // arbitrary reference rank, not tied to any candidate
+  const cand = { rank: 8850 };
   const data = { meritMap: load("merit_map.json"), gujarat: load("gujarat.json"), mcc: load("mcc.json") };
   const { merit, options } = predict({ rank: cand.rank, category: "SEBC", domicile: true }, data);
   assert.deepEqual(merit, { general: 510, category: 99, extrapolated: false });

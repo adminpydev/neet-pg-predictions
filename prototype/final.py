@@ -1,5 +1,5 @@
 import re, pandas as pd
-G, E, RANK = 510, 99, 8839   # Gujarat 2025 general / SEBC merit equivalent to AIR 8839
+G, E, RANK = 510, 99, 8850   # example: Gujarat 2025 general / SEBC merit equivalent to AIR 8850
 NAMES = {}
 NAMES = {c: n.strip() for _, c, n in (re.split(r"\s{2,}", l.strip(), 2) for l in open("guj/codes.txt"))}
 NAMES.update({"JUMED": "GMERS Medical College, Junagadh", "VADMED": "GMERS Medical College, Vadnagar", "AMRMED": "Shantabaa Medical College, Amreli",
@@ -86,11 +86,11 @@ top = GP2[gov & GP2["Chance (OBC/SEBC)"].isin(["High", "Good", "Borderline"])].g
 SS["Best Gujarat Govt options"] = top; SS = SS.fillna("").sort_values("Gujarat State - Govt/GMERS/Municipal (GQ)", ascending=False).reset_index().rename(columns={"index": "Stream"})
 
 notes = pd.DataFrame({"Item": ["Candidate", "Score / AIR", "Category", "Preference", "Gujarat merit equivalent", "Gujarat data", "MCC data", "Chance rule",
-    "Gujarat eligibility", "Not included", "Caveat"], "Detail": ["PG11111111", "512 / 8839 (top 3.4%)", "OBC (= SEBC in Gujarat state counselling)", "Gujarat first",
-    f"In Gujarat 2025 merit list, AIR 8839 fell at General merit ~{G} and SEBC merit ~{E}. Used these to compare with Gujarat 2025 last merit.",
+    "Gujarat eligibility", "Not included", "Caveat"], "Detail": ["PG11111111", "example score / AIR 8850", "OBC (= SEBC in Gujarat state counselling)", "Gujarat first",
+    f"In Gujarat 2025 merit list, AIR 8850 fell at General merit ~{G} and SEBC merit ~{E}. Used these to compare with Gujarat 2025 last merit.",
     "ACPPGMEC Gujarat 2025-26 Last Merit Rounds 1-4, merit lists, seat and fee lists (medadmgujarat.org)",
     "MCC 2024 Round 1-3 final allotment + 2025 stray round (mcc.nic.in). OBC can take Open or OBC seats; Deemed seats have no reservation.",
-    "Gujarat: best of (Open last merit / 510, SEBC last merit / 99). MCC: last OBC-eligible rank / 8839. High >= 1.15, Good >= 1, Borderline >= 0.9.",
+    "Gujarat: best of (Open last merit / 510, SEBC last merit / 99). MCC: last OBC-eligible rank / 8850. High >= 1.15, Good >= 1, Borderline >= 0.9.",
     "Gujarat state quota (GQ/MQ) needs Gujarat domicile / eligibility per ACPPGMEC rules; SEBC seats need Gujarat SEBC certificate. MCC AIQ OBC needs central OBC-NCL certificate.",
     "Institutional (university) seats, in-service seats, NRI seats, DNB-only Gujarat rows are in data but not used for chance.",
     "Based on 2024/2025 cutoffs; 2026 will shift. Seat counts per college/branch are small (often 1-4 SEBC seats), so check seat matrix when 2026 counselling opens."]})

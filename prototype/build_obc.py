@@ -1,5 +1,5 @@
 import re, pandas as pd
-RANK, APP, SCORE = 8839, "PG11111111", 512
+RANK, APP, SCORE = 8850, "PG11111111", 500  # example values, not a real candidate
 r = pd.read_pickle("r3.pkl"); s = pd.read_pickle("stray.pkl")
 r.columns = "rank q1 i1 c1 rem1 q2 i2 c2 rem2 q3 i3 c3 cat_allot cat_cand opt remarks".split()
 s.columns = "sno rank quota inst course cat_allot cat_cand remarks".split()
@@ -95,7 +95,7 @@ notes = pd.DataFrame({"Item": ["Candidate", "Score (out of 720)", "NEET-PG 2026 
     "MCC Final Result Stray Vacancy Round, PG Counselling 2025 (mcc.nic.in). MCC no longer hosts 2025 Round 1-3 ranked results.",
     "General closing = highest rank at which a General-category candidate (or an Open seat) was allotted that college+course in 2024 R1-R3 or 2025 stray. High >= 1.15x rank, Good >= rank, Borderline >= 0.9x rank. Only All India 50%, Deemed and DNB quotas counted (AFMS, NRI, minority, DU/IP/BHU/AMU need special eligibility).",
     "From MCC quota: AIQ/Central Univ = Govt; Deemed/NRI/Minority = Private (Deemed); DNB quota = NBEMS hospitals (mostly private/trust).",
-    "Only MCC counselling (AIQ 50% govt seats, central, deemed, DNB). State quota counselling (other 50% govt seats + state private) not included. Closing ranks change yearly; 2026 had ~266k candidates, more than 2024, so rank 8839 is slightly stronger in 2026."]})
+    "Only MCC counselling (AIQ 50% govt seats, central, deemed, DNB). State quota counselling (other 50% govt seats + state private) not included. Closing ranks change yearly; 2026 had ~266k candidates, more than 2024, so a given rank is slightly stronger in 2026."]})
 cols = g + ["Chance (OBC)", "Rank used for chance", "Basis", "OBC-eligible Closing Rank", "Closing Rank (all cat)", "Opening Rank (all cat)",
             "2025 Stray OBC-eligible Closing", "2025 Stray Closing (all cat)", "Allotments", "Rounds"]
 S25 = A[A.src == "2025 Stray"][["rank", "Quota", "Sector", "Institute", "State", "Stream", "Degree", "cat"]].rename(columns={"rank": "Rank", "cat": "Allotted Category"}).sort_values("Rank")
