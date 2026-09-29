@@ -2,7 +2,7 @@ import { GOVT_TYPES, lookup, predict, resultStats } from "./engine.js";
 
 const $ = (id) => document.getElementById(id);
 const COLS = [["stream", "Stream"], ["course", "Course"], ["college", "College"], ["type", "Type"], ["route", "Route"],
-  ["chance", "Chance"], ["earliestRound", "Earliest round"], ["fee", "Fee / yr"], ["closing", "Closing AIR · merit"]];
+  ["chance", "Chance"], ["earliestRound", "Earliest round"], ["fee", "Fee / yr"], ["closing", "Last admitted"]];
 // table drops Stream: the Course cell already names it; CSV keeps all columns
 const TABLE_COLS = COLS.slice(1);
 const CHANCE_ICON = { High: "✓", Good: "↑", Borderline: "~", Low: "↓", Unknown: "?" };
@@ -148,11 +148,12 @@ function renderOutlook(merit, insights, category, domicile) {
   el.querySelector(".outlook-verdict").textContent = govt > 0
     ? `Govt seats in reach in ${streamsWithGovt} branches`
     : "No Govt seats in reach — see private and All India options below";
-  let meta = `Gujarat General merit ~${merit.general}`;
-  if (merit.category != null) meta += ` · ${category} merit ~${merit.category}`;
-  if (merit.extrapolated) meta += " Estimate extrapolated beyond 2025 lists.";
-  if (!domicile) meta += " Without Gujarat domicile only All India (MCC) seats are shown.";
-  el.querySelector(".outlook-meta").textContent = meta;
+  let meta = `Your predicted Gujarat rank: ${gjTag("General")} ~${merit.general}`;
+  if (merit.category != null) meta += ` · ${gjTag(category)} ~${merit.category}`;
+  meta += ` · your ${airTag} ${fmt(candidate.rank, 0)}`;
+  if (merit.extrapolated) meta += " · Estimate extrapolated beyond 2025 lists.";
+  if (!domicile) meta += " · Without Gujarat domicile only All India (MCC) seats are shown.";
+  el.querySelector(".outlook-meta").innerHTML = meta;
 }
 
 const BRANCH_PAGE = 8;
@@ -256,41 +257,90 @@ function updateChipCounts() {
 // --- list / table / paging ---
 // --- AIR verdict + round-by-round cutoffs ---
 const air = (n) => `~${fmt(Math.round(n / 10) * 10, 0)}`;
+const approx = (n) => `≈ ${fmt(Math.round(n / 10) * 10, 0)}`;
 
-// text: the cutoff (AIR + Gujarat merit for state seats); sub: where the student stands on both scales
+// Two scales, kept apart:
+//   Gujarat rank = position in the Gujarat state merit list (General list, or the category list). State counselling
+//                  admits by this, so it is the real cutoff for Gujarat State seats.
+//   AIR          = All India Rank. MCC seats admit by AIR; for state seats it is only an approximate equivalent.
+const catLabel = (name) => (name === "Open" ? "General" : name);
+const n0 = (n) => fmt(Math.round(n), 0);
+const n10 = (n) => fmt(Math.round(n / 10) * 10, 0);
+// visual tags: purple GJ = Gujarat state merit rank, blue AIR = All India Rank
+const gjTag = (cat) => `<span class="tag tag-gj" title="Gujarat state merit rank">GJ${cat ? ` ${esc(cat)}` : ""}</span>`;
+const airTag = `<span class="tag tag-air" title="All India Rank">AIR</span>`;
+const LEGEND = `<p class="tag-legend">${gjTag("")} Gujarat state rank (used by Gujarat counselling) &nbsp; ${airTag} All India Rank (≈ = approximate equivalent)</p>`;
+
 function verdict(o) {
   const c = o.closing;
-  if (!c) return { cls: "none", text: "No cutoff data for your category", sub: "" };
-  if (c.vacant) return { cls: "ahead", text: `Seat went vacant in ${c.round} — open to anyone eligible`, sub: "" };
-  if (c.air == null) return { cls: "none", text: o.reason, sub: "" };
-  const ahead = c.air >= candidate.rank, gap = `${air(Math.abs(c.air - candidate.rank))} ranks ${ahead ? "ahead" : "short"}`;
-  const state = c.merit != null;
-  const text = `${ahead ? "Went up to" : "Closed at"} AIR ${air(c.air)}${state ? ` · ${c.name} merit ${c.merit}` : ""} (${c.round})`;
-  const sub = state
-    ? `You: AIR ${fmt(candidate.rank, 0)} · ${c.name} merit ~${c.yourMerit} — ${gap}, ${Math.abs(c.merit - c.yourMerit)} merit places ${ahead ? "ahead" : "short"}`
-    : `You: AIR ${fmt(candidate.rank, 0)} — ${gap} (All India seats use AIR only)`;
-  return { cls: ahead ? "ahead" : "short", text, sub };
+  if (!c) return { cls: "none", head: "No cutoff data for your category" };
+  if (c.vacant) return { cls: "ahead", head: `✓ Seat went vacant in ${c.round} — open to anyone eligible` };
+  if (c.air == null) return { cls: "none", head: o.reason };
+  const state = c.merit != null, cat = catLabel(c.name), where = `${cat} seat, ${c.round}`;
+  if (!state) {
+    const ahead = c.air >= candidate.rank;
+    return { cls: ahead ? "ahead" : "short", state, cat, c,
+      head: `${ahead ? "✓" : "✗"} ${n10(Math.abs(c.air - candidate.rank))} ranks ${ahead ? "ahead of" : "behind"} the last admitted (${where})` };
+  }
+  const ahead = c.merit >= c.yourMerit;
+  return { cls: ahead ? "ahead" : "short", state, cat, c,
+    head: `${ahead ? "✓" : "✗"} ${Math.abs(c.merit - c.yourMerit)} places ${ahead ? "ahead of" : "behind"} the last admitted (${where})` };
 }
-const verdictText = (o) => [verdict(o).text, verdict(o).sub].filter(Boolean).join(" — ");
+
+// plain text for CSV and tooltips
+const verdictText = (o) => {
+  const v = verdict(o);
+  if (!v.c) return v.head;
+  return v.state
+    ? `${v.head} — last admitted Gujarat ${v.cat} rank ${v.c.merit} (≈ AIR ${n10(v.c.air)}); yours Gujarat ${v.cat} rank ~${v.c.yourMerit} (AIR ${n0(candidate.rank)})`
+    : `${v.head} — last admitted AIR ${n0(v.c.air)}; your AIR ${n0(candidate.rank)}`;
+};
+
+const verdictHtml = (o) => {
+  const v = verdict(o);
+  let body = "";
+  if (v.c) body = v.state
+    ? `<dl class="cmp"><dt>Last admitted</dt><dd>${gjTag(v.cat)} ${v.c.merit} <span class="approx">${airTag} ≈ ${n10(v.c.air)}</span></dd>
+       <dt>You</dt><dd>${gjTag(v.cat)} ~${v.c.yourMerit} <span class="approx">${airTag} ${n0(candidate.rank)}</span></dd></dl>`
+    : `<dl class="cmp"><dt>Last admitted</dt><dd>${airTag} ${n0(v.c.air)}</dd><dt>You</dt><dd>${airTag} ${n0(candidate.rank)}</dd></dl>`;
+  return `<p class="verdict verdict--${v.cls}">${esc(v.head)}</p>${body}`;
+};
 
 function roundsTable(o) {
   if (!o.rounds || !o.rounds.length) return `<p class="muted">No round data.</p>`;
+  const state = o.route.startsWith("Gujarat");
   const names = o.rounds[0].cols.map((c) => c.name);
-  const cell = (c) => c.merit == null && c.air == null ? `<td class="r-none">—</td>`
-    : `<td class="${c.reached ? "r-hit" : "r-miss"}">${c.vacant ? "Vacant" : c.air == null ? `merit ${c.merit}` : `AIR ${air(c.air)}`}<span class="r-mark" aria-label="${c.reached ? "you would get it" : "out of reach"}">${c.reached ? " ✓" : ""}</span>${c.merit != null && !c.vacant && c.air != null ? `<span class="r-merit">merit ${c.merit}</span>` : ""}</td>`;
-  return `<table class="rounds"><thead><tr><th scope="col">Round</th>${names.map((n) => `<th scope="col">${esc(n)} closing</th>`).join("")}</tr></thead>
-    <tbody>${o.rounds.map((r) => `<tr><th scope="row">${esc(r.round)}</th>${r.cols.map(cell).join("")}</tr>`).join("")}</tbody></table>
-    <p class="muted rounds-note">Your AIR ${fmt(candidate.rank, 0)}${o.closing && o.closing.yourMerit != null && myMerit ? ` · General merit ~${myMerit.general}${myMerit.category != null ? ` · ${esc(o.rounds[0].cols.at(-1).name)} merit ~${myMerit.category}` : ""}` : ""}. ✓ = you'd have got it that round. Gujarat merit cutoffs converted to AIR using 2025 merit lists.</p>`;
+  const mine = (name) => (name === "Open" ? myMerit.general : myMerit.category);
+  const you = state
+    ? names.map((n) => `<td>${gjTag("")} ~${mine(n)}</td>`).join("")
+    : `<td>${airTag} ${n0(candidate.rank)}</td>`;
+  const cell = (c) => {
+    if (c.merit == null && c.air == null) return `<td class="r-none">—</td>`;
+    const cls = c.reached ? "r-hit" : "r-miss", mark = `<span class="r-mark" aria-label="${c.reached ? "in reach" : "out of reach"}">${c.reached ? "✓" : "✗"}</span>`;
+    if (c.vacant) return `<td class="${cls}">${mark} Vacant</td>`;
+    return state
+      ? `<td class="${cls}">${mark} ${gjTag("")} ${c.merit}${c.air != null ? `<span class="approx">${airTag} ≈ ${n10(c.air)}</span>` : ""}</td>`
+      : `<td class="${cls}">${mark} ${airTag} ${n0(c.air)}</td>`;
+  };
+  return `${state ? LEGEND : ""}<table class="rounds"><thead><tr><th scope="col">Round</th>${names.map((n) => `<th scope="col">${esc(catLabel(n))} seat — last admitted</th>`).join("")}</tr></thead>
+    <tbody><tr class="you-row"><th scope="row">You</th>${you}</tr>
+    ${o.rounds.map((r) => `<tr><th scope="row">${esc(r.round)}</th>${r.cols.map(cell).join("")}</tr>`).join("")}</tbody></table>
+    <p class="muted rounds-note">${state
+      ? `✓ = your GJ rank was within the last admitted GJ rank that round. Your ${airTag} is ${n0(candidate.rank)}.`
+      : "✓ = your AIR was within the last admitted AIR. All India (MCC) seats are allotted by AIR only."}</p>`;
 }
 
+// wide-table cell (HTML) — tags keep the two scales apart
 const closingShort = (o) => {
   const c = o.closing;
-  return !c ? "—" : c.vacant ? `Vacant (${c.round})` : c.air == null ? "—"
-    : `${c.name} AIR ${air(c.air)}${c.merit != null ? ` · merit ${c.merit}` : ""} (${c.round})`;
+  if (!c) return "—";
+  if (c.vacant) return `Vacant (${c.round})`;
+  if (c.merit != null) return `${gjTag(catLabel(c.name))} ${c.merit} <span class="approx">${airTag} ≈ ${n10(c.air)}</span> <span class="muted">${c.round}</span>`;
+  return c.air == null ? "—" : `${airTag} ${n0(c.air)} <span class="muted">${c.round}</span>`;
 };
 
 const roundsText = (o) => (o.rounds || []).flatMap((r) => r.cols.map((c) =>
-  `${r.round} ${c.name} ${c.vacant ? "vacant" : c.air == null ? "-" : `AIR ${Math.round(c.air)}`}${c.merit != null && !c.vacant ? ` / merit ${c.merit}` : ""}${c.reached ? " (in reach)" : ""}`)).join("; ");
+  `${r.round} ${catLabel(c.name)}: ${c.vacant ? "vacant" : c.merit != null ? `Gujarat rank ${c.merit} (≈AIR ${Math.round(c.air)})` : c.air != null ? `AIR ${c.air}` : "-"}${c.reached ? " ✓" : ""}`)).join("; ");
 
 function cardHtml(o) {
   const courseLine = o.stream === o.course ? courseLabel(o) : `${courseLabel(o)} · ${o.stream}`;
@@ -308,8 +358,7 @@ function cardHtml(o) {
         <li>${esc(earliestLabel(o))}</li>
       </ul>
     </div>
-    <p class="verdict verdict--${verdict(o).cls}">${esc(verdict(o).text)}</p>
-    ${verdict(o).sub ? `<p class="verdict-sub">${esc(verdict(o).sub)}</p>` : ""}
+    ${verdictHtml(o)}
     <details class="why"><summary>Round-by-round cutoffs</summary>${roundsTable(o)}</details>
   </article>`;
 }
@@ -319,7 +368,7 @@ function rowHtml(o, i) {
   return `<tr class="opt-row">${TABLE_COLS.map(([k]) => k === "chance"
     ? `<td><span class="chip-chance chance--${esc(o.chance)}"><span class="icon" aria-hidden="true">${CHANCE_ICON[o.chance] || "?"}</span>${esc(o.chance)}</span></td>`
     : k === "course" ? `<td>${esc(courseLabel(o))}</td>`
-    : k === "closing" ? `<td><button type="button" class="closing-btn verdict--${verdict(o).cls}" data-i="${i}" aria-expanded="false" title="${esc(verdictText(o))}">${esc(closingShort(o))}<span class="caret" aria-hidden="true">▾</span></button></td>`
+    : k === "closing" ? `<td><button type="button" class="closing-btn verdict--${verdict(o).cls}" data-i="${i}" aria-expanded="false" title="${esc(verdictText(o))}">${closingShort(o)}<span class="caret" aria-hidden="true">▾</span></button></td>`
     : `<td>${esc(k === "fee" ? fee(o.fee) : k === "earliestRound" ? earliest(o) : o[k])}</td>`).join("")}</tr>`;
 }
 
@@ -332,8 +381,7 @@ function toggleRounds(btn) {
   else {
     const o = shownRows[Number(btn.dataset.i)];
     tr.insertAdjacentHTML("afterend", `<tr class="rounds-row"><td colspan="${TABLE_COLS.length}">
-      <p class="verdict verdict--${verdict(o).cls}">${esc(verdict(o).text)}</p>
-      ${verdict(o).sub ? `<p class="verdict-sub">${esc(verdict(o).sub)}</p>` : ""}${roundsTable(o)}</td></tr>`);
+      ${verdictHtml(o)}${roundsTable(o)}</td></tr>`);
   }
   btn.setAttribute("aria-expanded", String(!open));
 }

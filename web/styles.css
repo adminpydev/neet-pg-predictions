@@ -480,7 +480,6 @@ button, input, select { font: inherit; color: inherit; }
 .rounds th, .rounds td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); }
 .rounds thead th { color: var(--muted); font-weight: 600; }
 .rounds tbody th { font-weight: 600; }
-.rounds .r-hit { background: #E7F4EC; color: var(--high); font-weight: 600; }
 .rounds .r-miss { color: var(--muted); }
 .rounds .r-none { color: var(--muted); }
 .rounds-note { font-size: 14px; margin: 6px 0 0; }
@@ -495,5 +494,25 @@ button, input, select { font: inherit; color: inherit; }
 .rounds-row .rounds { max-width: 560px; background: var(--card); }
 @media (prefers-reduced-motion: reduce) { .closing-btn .caret { transition: none; } }
 
-.verdict-sub { margin: 2px 0 0; font-size: 14px; color: var(--muted); }
-.rounds .r-merit { display: block; font-size: 14px; font-weight: 400; color: var(--muted); }
+
+.rounds .you-row th, .rounds .you-row td { background: #EAF2FB; color: var(--primary); border-bottom: 2px solid var(--primary); }
+
+/* GJ (Gujarat state rank) vs AIR (All India Rank) tags — used everywhere a rank appears */
+.tag { display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 12px; font-weight: 700;
+  letter-spacing: .02em; line-height: 1.5; vertical-align: 1px; white-space: nowrap; }
+.tag-gj { background: #EFEAFB; color: #4B2E9A; }
+.tag-air { background: #E3EEFA; color: #0B5FA5; }
+.approx { color: var(--muted); white-space: nowrap; }
+.tag-legend { font-size: 14px; color: var(--muted); margin: 8px 0 4px; }
+.cmp { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; margin: 6px 0 0; font-size: 14px; }
+.cmp dt { color: var(--muted); }
+.cmp dd { margin: 0; font-weight: 600; }
+.cmp .approx { font-weight: 400; margin-left: 6px; }
+.rounds .approx { display: block; font-weight: 400; margin-top: 2px; }
+.rounds .r-hit .r-mark { color: var(--high); font-weight: 700; }
+.rounds .r-miss .r-mark { color: var(--low); font-weight: 700; }
+.rounds .r-hit, .rounds .r-miss { font-weight: 600; color: var(--ink); }
+.closing-btn .approx { font-weight: 400; }
+.rounds .r-hit { background: #E7F4EC; }
+.closing-btn { flex-wrap: wrap; margin: -8px; }
+.closing-btn .approx { display: block; flex-basis: 100%; }
