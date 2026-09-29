@@ -484,4 +484,13 @@ button, input, select { font: inherit; color: inherit; }
 .rounds .r-miss { color: var(--muted); }
 .rounds .r-none { color: var(--muted); }
 .rounds-note { font-size: 14px; margin: 6px 0 0; }
-.table td.verdict--ahead, .table td.verdict--short { font-weight: 600; }
+
+.closing-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 8px; margin: -8px -8px;
+  border: 1px solid transparent; border-radius: var(--radius); background: none; font: inherit; font-weight: 600;
+  text-align: left; cursor: pointer; }
+.closing-btn:hover { border-color: var(--border); background: var(--bg); }
+.closing-btn .caret { color: var(--muted); transition: transform .15s; }
+.closing-btn[aria-expanded="true"] .caret { transform: rotate(180deg); }
+.rounds-row > td { background: var(--bg); padding: 12px 16px 16px; }
+.rounds-row .rounds { max-width: 560px; background: var(--card); }
+@media (prefers-reduced-motion: reduce) { .closing-btn .caret { transition: none; } }

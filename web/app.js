@@ -306,12 +306,26 @@ function cardHtml(o) {
   </article>`;
 }
 
-function rowHtml(o) {
-  return `<tr>${TABLE_COLS.map(([k]) => k === "chance"
+// wide screens: the Closing AIR cell is a toggle that opens the round table in a row underneath
+function rowHtml(o, i) {
+  return `<tr class="opt-row">${TABLE_COLS.map(([k]) => k === "chance"
     ? `<td><span class="chip-chance chance--${esc(o.chance)}"><span class="icon" aria-hidden="true">${CHANCE_ICON[o.chance] || "?"}</span>${esc(o.chance)}</span></td>`
     : k === "course" ? `<td>${esc(courseLabel(o))}</td>`
-    : k === "closing" ? `<td class="verdict--${verdict(o).cls}" title="${esc(verdict(o).text)}">${esc(closingShort(o))}</td>`
+    : k === "closing" ? `<td><button type="button" class="closing-btn verdict--${verdict(o).cls}" data-i="${i}" aria-expanded="false" title="${esc(verdict(o).text)}">${esc(closingShort(o))}<span class="caret" aria-hidden="true">▾</span></button></td>`
     : `<td>${esc(k === "fee" ? fee(o.fee) : k === "earliestRound" ? earliest(o) : o[k])}</td>`).join("")}</tr>`;
+}
+
+let shownRows = [];
+
+function toggleRounds(btn) {
+  const tr = btn.closest("tr"), open = btn.getAttribute("aria-expanded") === "true";
+  if (open) tr.nextElementSibling.remove();
+  else {
+    const o = shownRows[Number(btn.dataset.i)];
+    tr.insertAdjacentHTML("afterend", `<tr class="rounds-row"><td colspan="${TABLE_COLS.length}">
+      <p class="verdict verdict--${verdict(o).cls}">${esc(verdict(o).text)}</p>${roundsTable(o)}</td></tr>`);
+  }
+  btn.setAttribute("aria-expanded", String(!open));
 }
 
 function renderList() {
@@ -326,6 +340,7 @@ function renderList() {
   const page = rows.slice(0, pageSize);
   $("cards").innerHTML = page.map(cardHtml).join("");
   $("table").tBodies[0].innerHTML = page.map(rowHtml).join("");
+  shownRows = page;
 }
 
 function downloadCsv() {
@@ -379,5 +394,6 @@ $("show-all-branches").addEventListener("click", () => {
 $("more").addEventListener("click", () => { pageSize += 30; renderList(); });
 $("clear").addEventListener("click", clearFilters);
 $("csv").addEventListener("click", downloadCsv);
+$("table").addEventListener("click", (e) => { const btn = e.target.closest(".closing-btn"); if (btn) toggleRounds(btn); });
 
 load();
