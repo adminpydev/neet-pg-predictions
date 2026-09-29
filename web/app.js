@@ -2,7 +2,7 @@ import { GOVT_TYPES, lookup, predict, resultStats } from "./engine.js";
 
 const $ = (id) => document.getElementById(id);
 const COLS = [["stream", "Stream"], ["course", "Course"], ["college", "College"], ["type", "Type"], ["route", "Route"],
-  ["chance", "Chance"], ["earliestRound", "Earliest round"], ["fee", "Fee / yr"], ["closing", "Closing AIR"]];
+  ["chance", "Chance"], ["earliestRound", "Earliest round"], ["fee", "Fee / yr"], ["closing", "Closing AIR · merit"]];
 // table drops Stream: the Course cell already names it; CSV keeps all columns
 const TABLE_COLS = COLS.slice(1);
 const CHANCE_ICON = { High: "✓", Good: "↑", Borderline: "~", Low: "↓", Unknown: "?" };
@@ -128,6 +128,7 @@ function showPrediction() {
   const domicile = $("domicile").checked;
   const p = predict({ rank: candidate.rank, category, domicile }, data);
   options = p.options;
+  myMerit = p.merit;
   renderOutlook(p.merit, p.insights, category, domicile);
   renderStreams(p.insights);
   fillFilter("f-stream", options.map((o) => o.stream));
@@ -256,34 +257,40 @@ function updateChipCounts() {
 // --- AIR verdict + round-by-round cutoffs ---
 const air = (n) => `~${fmt(Math.round(n / 10) * 10, 0)}`;
 
+// text: the cutoff (AIR + Gujarat merit for state seats); sub: where the student stands on both scales
 function verdict(o) {
   const c = o.closing;
-  if (!c) return { cls: "none", text: "No cutoff data for your category" };
-  if (c.vacant) return { cls: "ahead", text: `Seat went vacant in ${c.round} — open to anyone eligible` };
-  if (c.air == null) return { cls: "none", text: o.reason };
-  const diff = c.air - candidate.rank;
-  return diff >= 0
-    ? { cls: "ahead", text: `Went up to AIR ${air(c.air)} (${c.name}, ${c.round}) · you're ${air(diff)} ranks ahead` }
-    : { cls: "short", text: `Closed at AIR ${air(c.air)} (${c.name}, ${c.round}) · ${air(-diff)} ranks short` };
+  if (!c) return { cls: "none", text: "No cutoff data for your category", sub: "" };
+  if (c.vacant) return { cls: "ahead", text: `Seat went vacant in ${c.round} — open to anyone eligible`, sub: "" };
+  if (c.air == null) return { cls: "none", text: o.reason, sub: "" };
+  const ahead = c.air >= candidate.rank, gap = `${air(Math.abs(c.air - candidate.rank))} ranks ${ahead ? "ahead" : "short"}`;
+  const state = c.merit != null;
+  const text = `${ahead ? "Went up to" : "Closed at"} AIR ${air(c.air)}${state ? ` · ${c.name} merit ${c.merit}` : ""} (${c.round})`;
+  const sub = state
+    ? `You: AIR ${fmt(candidate.rank, 0)} · ${c.name} merit ~${c.yourMerit} — ${gap}, ${Math.abs(c.merit - c.yourMerit)} merit places ${ahead ? "ahead" : "short"}`
+    : `You: AIR ${fmt(candidate.rank, 0)} — ${gap} (All India seats use AIR only)`;
+  return { cls: ahead ? "ahead" : "short", text, sub };
 }
+const verdictText = (o) => [verdict(o).text, verdict(o).sub].filter(Boolean).join(" — ");
 
 function roundsTable(o) {
   if (!o.rounds || !o.rounds.length) return `<p class="muted">No round data.</p>`;
   const names = o.rounds[0].cols.map((c) => c.name);
   const cell = (c) => c.merit == null && c.air == null ? `<td class="r-none">—</td>`
-    : `<td class="${c.reached ? "r-hit" : "r-miss"}">${c.vacant ? "Vacant" : c.air == null ? `merit ${c.merit}` : `AIR ${air(c.air)}`}<span class="r-mark" aria-label="${c.reached ? "you would get it" : "out of reach"}">${c.reached ? " ✓" : ""}</span></td>`;
+    : `<td class="${c.reached ? "r-hit" : "r-miss"}">${c.vacant ? "Vacant" : c.air == null ? `merit ${c.merit}` : `AIR ${air(c.air)}`}<span class="r-mark" aria-label="${c.reached ? "you would get it" : "out of reach"}">${c.reached ? " ✓" : ""}</span>${c.merit != null && !c.vacant && c.air != null ? `<span class="r-merit">merit ${c.merit}</span>` : ""}</td>`;
   return `<table class="rounds"><thead><tr><th scope="col">Round</th>${names.map((n) => `<th scope="col">${esc(n)} closing</th>`).join("")}</tr></thead>
     <tbody>${o.rounds.map((r) => `<tr><th scope="row">${esc(r.round)}</th>${r.cols.map(cell).join("")}</tr>`).join("")}</tbody></table>
-    <p class="muted rounds-note">Your AIR ${fmt(candidate.rank, 0)}. ✓ = you'd have got it that round. Gujarat merit cutoffs converted to AIR using 2025 merit lists.</p>`;
+    <p class="muted rounds-note">Your AIR ${fmt(candidate.rank, 0)}${o.closing && o.closing.yourMerit != null && myMerit ? ` · General merit ~${myMerit.general}${myMerit.category != null ? ` · ${esc(o.rounds[0].cols.at(-1).name)} merit ~${myMerit.category}` : ""}` : ""}. ✓ = you'd have got it that round. Gujarat merit cutoffs converted to AIR using 2025 merit lists.</p>`;
 }
 
 const closingShort = (o) => {
   const c = o.closing;
-  return !c ? "—" : c.vacant ? `Vacant (${c.round})` : c.air == null ? "—" : `${c.name} ${air(c.air)} (${c.round})`;
+  return !c ? "—" : c.vacant ? `Vacant (${c.round})` : c.air == null ? "—"
+    : `${c.name} AIR ${air(c.air)}${c.merit != null ? ` · merit ${c.merit}` : ""} (${c.round})`;
 };
 
 const roundsText = (o) => (o.rounds || []).flatMap((r) => r.cols.map((c) =>
-  `${r.round} ${c.name} ${c.vacant ? "vacant" : c.air == null ? "-" : `AIR ${Math.round(c.air)}`}${c.reached ? " (in reach)" : ""}`)).join("; ");
+  `${r.round} ${c.name} ${c.vacant ? "vacant" : c.air == null ? "-" : `AIR ${Math.round(c.air)}`}${c.merit != null && !c.vacant ? ` / merit ${c.merit}` : ""}${c.reached ? " (in reach)" : ""}`)).join("; ");
 
 function cardHtml(o) {
   const courseLine = o.stream === o.course ? courseLabel(o) : `${courseLabel(o)} · ${o.stream}`;
@@ -302,6 +309,7 @@ function cardHtml(o) {
       </ul>
     </div>
     <p class="verdict verdict--${verdict(o).cls}">${esc(verdict(o).text)}</p>
+    ${verdict(o).sub ? `<p class="verdict-sub">${esc(verdict(o).sub)}</p>` : ""}
     <details class="why"><summary>Round-by-round cutoffs</summary>${roundsTable(o)}</details>
   </article>`;
 }
@@ -311,11 +319,12 @@ function rowHtml(o, i) {
   return `<tr class="opt-row">${TABLE_COLS.map(([k]) => k === "chance"
     ? `<td><span class="chip-chance chance--${esc(o.chance)}"><span class="icon" aria-hidden="true">${CHANCE_ICON[o.chance] || "?"}</span>${esc(o.chance)}</span></td>`
     : k === "course" ? `<td>${esc(courseLabel(o))}</td>`
-    : k === "closing" ? `<td><button type="button" class="closing-btn verdict--${verdict(o).cls}" data-i="${i}" aria-expanded="false" title="${esc(verdict(o).text)}">${esc(closingShort(o))}<span class="caret" aria-hidden="true">▾</span></button></td>`
+    : k === "closing" ? `<td><button type="button" class="closing-btn verdict--${verdict(o).cls}" data-i="${i}" aria-expanded="false" title="${esc(verdictText(o))}">${esc(closingShort(o))}<span class="caret" aria-hidden="true">▾</span></button></td>`
     : `<td>${esc(k === "fee" ? fee(o.fee) : k === "earliestRound" ? earliest(o) : o[k])}</td>`).join("")}</tr>`;
 }
 
 let shownRows = [];
+let myMerit = null; // predicted Gujarat merit for the current prediction
 
 function toggleRounds(btn) {
   const tr = btn.closest("tr"), open = btn.getAttribute("aria-expanded") === "true";
@@ -323,7 +332,8 @@ function toggleRounds(btn) {
   else {
     const o = shownRows[Number(btn.dataset.i)];
     tr.insertAdjacentHTML("afterend", `<tr class="rounds-row"><td colspan="${TABLE_COLS.length}">
-      <p class="verdict verdict--${verdict(o).cls}">${esc(verdict(o).text)}</p>${roundsTable(o)}</td></tr>`);
+      <p class="verdict verdict--${verdict(o).cls}">${esc(verdict(o).text)}</p>
+      ${verdict(o).sub ? `<p class="verdict-sub">${esc(verdict(o).sub)}</p>` : ""}${roundsTable(o)}</td></tr>`);
   }
   btn.setAttribute("aria-expanded", String(!open));
 }
@@ -347,7 +357,7 @@ function downloadCsv() {
   const rows = sorted(filtered());
   const cell = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
   const val = (o, k) => (k === "fee" ? fee(o.fee) : k === "earliestRound" ? earliest(o) : k === "course" ? courseLabel(o)
-    : k === "closing" ? verdict(o).text : o[k]);
+    : k === "closing" ? verdictText(o) : o[k]);
   const csv = [[...COLS.map(([, h]) => h), "Rounds"].map(cell).join(","),
     ...rows.map((o) => [...COLS.map(([k]) => val(o, k)), roundsText(o)].map(cell).join(","))].join("\n");
   const a = Object.assign(document.createElement("a"), {

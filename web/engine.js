@@ -102,7 +102,8 @@ export function gujaratOptions(merit, category, records, ctx = null) {
       })),
     }));
     const closing = best && { name: best.lab, air: toAir(best.lab === "Open" ? "OPEN" : category, best.value),
-      vacant: best.value === VACANT, round: `R${best.round}` };
+      vacant: best.value === VACANT, round: `R${best.round}`,
+      merit: best.value === VACANT ? null : best.value, yourMerit: best.mine };
     return {
       stream: rec.stream, course: rec.course, degree: rec.degree, college: rec.college, type: rec.type,
       route: rec.seat === "GQ" ? "Gujarat State - Govt Quota" : "Gujarat State - Management Quota", rounds, closing,

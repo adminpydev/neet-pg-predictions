@@ -183,6 +183,9 @@ test("gujaratOptions gives per-round AIR and closing verdict when ctx given", ()
   assert.equal(r1[1].reached, false);
   assert.equal(o.rounds[2].cols[0].vacant, true);
   assert.equal(o.closing.vacant, true);
+  assert.equal(o.closing.merit, null);
+  const [p] = gujaratOptions(merit, "SEBC", [guj({ 3: { SEBC: 396 } })], { rank: 8850, meritMap });
+  assert.deepEqual([p.closing.name, p.closing.merit, p.closing.yourMerit, p.closing.round], ["SEBC", 396, 99, "R3"]);
 });
 
 test("mccOptions gives rounds with main and stray AIR", () => {
