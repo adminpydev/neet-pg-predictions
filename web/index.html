@@ -88,9 +88,16 @@
           <button class="chip" type="button" data-chance="Low" aria-pressed="false">Low<span class="chip-count"></span></button>
         </div>
         <div class="filter-row">
-          <select id="f-stream" class="select" aria-label="Filter by stream"><option value="">All streams</option></select>
-          <select id="f-type" class="select" aria-label="Filter by college type"><option value="">All college types</option></select>
-          <select id="f-route" class="select" aria-label="Filter by route"><option value="">All routes</option></select>
+          <details id="f-stream" class="ms" data-all="All streams" data-unit="streams"><summary class="select">All streams</summary><div class="ms-panel" role="group" aria-label="Filter by stream"></div></details>
+          <details id="f-type" class="ms" data-all="All college types" data-unit="types"><summary class="select">All college types</summary><div class="ms-panel" role="group" aria-label="Filter by college type"></div></details>
+          <details id="f-route" class="ms" data-all="All routes" data-unit="routes"><summary class="select">All routes</summary><div class="ms-panel" role="group" aria-label="Filter by route"></div></details>
+          <select id="f-fee" class="select" aria-label="Maximum fee per year">
+            <option value="">Any fee</option>
+            <option value="200000">Up to ₹2 L / yr</option>
+            <option value="1200000">Up to ₹12 L / yr</option>
+            <option value="2500000">Up to ₹25 L / yr</option>
+            <option value="4000000">Up to ₹40 L / yr</option>
+          </select>
           <select id="f-sort" class="select" aria-label="Sort by">
             <option value="chance">Sort: Chance</option>
             <option value="fee-asc">Fee: low to high</option>

@@ -157,11 +157,33 @@ function renderStreams(insights) {
 }
 
 // --- filters ---
+// multi-select dropdowns: <details> + checkboxes; nothing ticked means "all"
 function fillFilter(id, values) {
   const counts = new Map();
   for (const v of values) counts.set(v, (counts.get(v) || 0) + 1);
-  const sel = $(id), first = sel.options[0];
-  sel.replaceChildren(first, ...[...counts.keys()].sort().map((v) => new Option(`${v} (${counts.get(v)})`, v)));
+  $(id).querySelector(".ms-panel").innerHTML = [...counts.keys()].sort().map((v) =>
+    `<label class="ms-item"><input type="checkbox" value="${esc(v)}"><span>${esc(v)}</span><span class="chip-count">${counts.get(v)}</span></label>`).join("");
+  msLabel(id);
+}
+
+const picked = (id) => new Set([...$(id).querySelectorAll("input:checked")].map((i) => i.value));
+
+function msLabel(id) {
+  const el = $(id), sel = [...picked(id)];
+  el.querySelector("summary").textContent = sel.length === 0 ? el.dataset.all
+    : sel.length === 1 ? sel[0] : `${sel.length} ${el.dataset.unit} selected`;
+}
+
+function setPicked(id, values) {
+  for (const box of $(id).querySelectorAll("input")) box.checked = values.includes(box.value);
+  msLabel(id);
+}
+
+// fee cap keeps rows with unknown fee (MCC seats carry no fee data)
+function matchesFilters(o) {
+  const st = picked("f-stream"), ty = picked("f-type"), ro = picked("f-route"), cap = Number($("f-fee").value);
+  return (!st.size || st.has(o.stream)) && (!ty.size || ty.has(o.type)) && (!ro.size || ro.has(o.route))
+    && (!cap || o.fee == null || o.fee <= cap);
 }
 
 const currentChance = () => document.querySelector('.chip[aria-pressed="true"]').dataset.chance;
@@ -176,15 +198,15 @@ function resetToDefaultFilters() {
 }
 
 function clearFilters() {
-  for (const id of ["f-stream", "f-type", "f-route"]) $(id).selectedIndex = 0;
+  for (const id of ["f-stream", "f-type", "f-route"]) setPicked(id, []);
+  $("f-fee").value = "";
   resetToDefaultFilters();
   renderList();
 }
 
 function filtered() {
-  const st = $("f-stream").value, ty = $("f-type").value, ro = $("f-route").value, ch = currentChance();
-  return options.filter((o) => (!st || o.stream === st) && (!ty || o.type === ty) && (!ro || o.route === ro)
-    && (ch === "all" || (ch === "reach" ? REACHABLE.has(o.chance) : o.chance === ch)));
+  const ch = currentChance();
+  return options.filter((o) => matchesFilters(o) && (ch === "all" || (ch === "reach" ? REACHABLE.has(o.chance) : o.chance === ch)));
 }
 
 function sorted(rows) {
@@ -196,8 +218,7 @@ function sorted(rows) {
 }
 
 function updateChipCounts() {
-  const st = $("f-stream").value, ty = $("f-type").value, ro = $("f-route").value;
-  const base = options.filter((o) => (!st || o.stream === st) && (!ty || o.type === ty) && (!ro || o.route === ro));
+  const base = options.filter(matchesFilters);
   const counts = {
     reach: base.filter((o) => REACHABLE.has(o.chance)).length, all: base.length,
     High: base.filter((o) => o.chance === "High").length, Good: base.filter((o) => o.chance === "Good").length,
@@ -263,7 +284,16 @@ function downloadCsv() {
 // --- wiring ---
 $("form").addEventListener("submit", (e) => { e.preventDefault(); showResult(); });
 $("predict").addEventListener("click", showPrediction);
-["f-stream", "f-type", "f-route", "f-sort"].forEach((id) => $(id).addEventListener("change", () => { pageSize = 30; renderList(); }));
+["f-stream", "f-type", "f-route", "f-fee", "f-sort"].forEach((id) => $(id).addEventListener("change", () => {
+  if ($(id).classList.contains("ms")) msLabel(id);
+  pageSize = 30;
+  renderList();
+}));
+// one dropdown open at a time; outside click or Escape closes it
+const dropdowns = [...document.querySelectorAll(".ms")];
+dropdowns.forEach((d) => d.addEventListener("toggle", () => { if (d.open) dropdowns.forEach((o) => o !== d && (o.open = false)); }));
+document.addEventListener("click", (e) => dropdowns.forEach((d) => { if (!d.contains(e.target)) d.open = false; }));
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") dropdowns.forEach((d) => (d.open = false)); });
 document.querySelector(".chips").addEventListener("click", (e) => {
   const chip = e.target.closest(".chip");
   if (!chip) return;
@@ -274,7 +304,7 @@ document.querySelector(".chips").addEventListener("click", (e) => {
 $("streams").addEventListener("click", (e) => {
   const btn = e.target.closest(".show-stream");
   if (!btn) return;
-  $("f-stream").value = btn.dataset.stream;
+  setPicked("f-stream", [btn.dataset.stream]);
   pageSize = 30;
   renderList();
   $("options-title").scrollIntoView({ behavior: reducedMotion() ? "auto" : "smooth" });
