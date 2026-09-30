@@ -8,13 +8,26 @@ import json
 import shutil
 import subprocess
 import sys
+import time
 
 from pipeline.sources import OUT, ROOT
 
 SITE = ROOT / "site"
 WEB = ROOT / "web"
-PAGE_FILES = ["index.html", "styles.css", "app.js", "engine.js", "favicon.svg"]
+PAGE_FILES = ["index.html", "styles.css", "app.js", "engine.js", "favicon.svg", "manifest.webmanifest",
+              "icon-192.png", "icon-512.png", "icon-maskable-512.png"]
 DATA_FILES = ["merit_map.json", "gujarat.json", "mcc.json", "meta.json"]
+
+
+def stamp_sw(source, build_id):
+    """Give the service worker a per-deploy cache name so installed apps pick up the new version."""
+    assert "__BUILD__" in source
+    return source.replace("__BUILD__", build_id)
+
+
+def build_id():
+    sha = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=ROOT, capture_output=True, text=True).stdout.strip()
+    return f"{sha or 'local'}-{int(time.time())}"
 
 
 def strip_rolls(results):
@@ -34,6 +47,7 @@ def build():
         shutil.copy(OUT / f, SITE / "data" / f)
     results = json.loads((OUT / "results.json").read_text())
     (SITE / "data" / "results.json").write_text(json.dumps(strip_rolls(results), separators=(",", ":")))
+    (SITE / "sw.js").write_text(stamp_sw((WEB / "sw.js").read_text(), build_id()))
     (SITE / ".nojekyll").touch()  # serve files as-is, no Jekyll processing
     print(f"built {SITE}")
 

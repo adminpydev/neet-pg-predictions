@@ -454,4 +454,7 @@ $("clear").addEventListener("click", clearFilters);
 $("csv").addEventListener("click", downloadCsv);
 $("table").addEventListener("click", (e) => { const btn = e.target.closest(".closing-btn"); if (btn) toggleRounds(btn); });
 
+// PWA: offline cache. Skipped on localhost so local edits are never served stale while developing.
+if ("serviceWorker" in navigator && location.hostname !== "localhost") navigator.serviceWorker.register("sw.js");
+
 load();

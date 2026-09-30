@@ -47,3 +47,10 @@ To update the site later (after code or data changes), run:
 
     .venv/bin/python -m pipeline.publish --push
 The published `results.json` contains every candidate's application number, score and rank.
+
+## PWA (installable app)
+
+`web/manifest.webmanifest` + `web/sw.js` make the site installable ("Add to Home Screen") and usable offline.
+`pipeline.publish` stamps a new cache name into `sw.js` on every deploy, so installed apps update on next open.
+The service worker is not registered on `localhost`, so local development never serves stale files;
+test it by serving `site/` on `127.0.0.1`.
