@@ -1,0 +1,460 @@
+import { GOVT_TYPES, lookup, predict, resultStats } from "./engine.js";
+
+const $ = (id) => document.getElementById(id);
+const COLS = [["stream", "Stream"], ["course", "Course"], ["college", "College"], ["type", "Type"], ["route", "Route"],
+  ["chance", "Chance"], ["earliestRound", "Earliest round"], ["fee", "Fee / yr"], ["closing", "Last admitted"]];
+// table drops Stream: the Course cell already names it; CSV keeps all columns
+const TABLE_COLS = COLS.slice(1);
+const CHANCE_ICON = { High: "✓", Good: "↑", Borderline: "~", Low: "↓", Unknown: "?" };
+const REACHABLE = new Set(["High", "Good", "Borderline"]);
+const fmt = (n, d = 2) => n.toLocaleString("en-IN", { maximumFractionDigits: d });
+const fee = (f) => (f == null ? "" : `₹${fmt(f / 1e5, 1)} L`);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const earliest = (o) => (o.earliestRound ? `Round ${o.earliestRound}` : "");
+const feeLabel = (o) => (o.fee == null ? "" : `Fee ${fee(o.fee)}/yr`);
+const earliestLabel = (o) => (o.earliestRound ? `From ${earliest(o)}` : "");
+// degree + course, without repeating the degree when it's already spelled out in `course`
+const normWord = (s) => String(s ?? "").toLowerCase().replace(/[^a-z]/g, "");
+const courseLabel = (o) => (normWord(o.course).startsWith(normWord(o.degree)) ? o.course : `${o.degree} ${o.course}`);
+
+let data, candidate, options = [], pageSize = 30;
+
+// --- generic reveal helpers ---
+const reducedMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+function reveal(section) {
+  section.hidden = false;
+  section.focus();
+  section.scrollIntoView({ behavior: reducedMotion() ? "auto" : "smooth" });
+}
+
+// --- load + url params ---
+async function load() {
+  try {
+    const get = (f) => fetch(`data/${f}`).then((r) => { if (!r.ok) throw new Error(f); return r.json(); });
+    const [results, meritMap, gujarat, mcc] = await Promise.all(
+      ["results.json", "merit_map.json", "gujarat.json", "mcc.json"].map(get));
+    data = { results, meritMap, gujarat, mcc };
+    $("loading").hidden = true;
+    $("form").hidden = false;
+    applyUrlParams();
+  } catch (err) {
+    console.error(err);
+    $("loading").hidden = true;
+    $("error").textContent = "Couldn't load the results data. Please refresh the page.";
+  }
+}
+
+function applyUrlParams() {
+  const qp = new URLSearchParams(location.search);
+  const app = qp.get("app");
+  if (!app) return;
+  $("app").value = app;
+  const cat = qp.get("cat");
+  if (cat) for (const r of document.querySelectorAll('input[name="category"]')) r.checked = r.value === cat;
+  if (qp.has("dom")) $("domicile").checked = qp.get("dom") !== "0";
+  showResult();
+  if (qp.get("predict") === "1" && !$("predict").hidden) showPrediction();
+}
+
+// --- result ---
+function showResult() {
+  $("error").textContent = "";
+  $("prediction").hidden = true;
+  const raw = $("app").value.trim();
+  // a plain number is an AIR: skip the result lookup and predict straight away
+  if (/^\d+$/.test(raw)) {
+    const rank = Number(raw), max = data.results.stats.maxRank;
+    if (rank < 1 || rank > max) return fail(`Enter an AIR between 1 and ${fmt(max, 0)}.`);
+    candidate = { appNo: null, roll: "", score: null, rank, status: "OK" };
+    renderAirOnly(candidate);
+    reveal($("result"));
+    showPrediction();
+    return;
+  }
+  candidate = lookup(raw, data.results);
+  if (!candidate) return fail("Application number not found in the NEET-PG 2026 result.");
+  renderResult(candidate, resultStats(candidate, data.results.stats));
+  reveal($("result"));
+}
+
+function fail(msg) {
+  $("result").hidden = true;
+  $("predict").hidden = true;
+  $("error").textContent = msg;
+}
+
+function renderAirOnly(c) {
+  $("result").querySelector(".section-title").textContent = `AIR ${fmt(c.rank, 0)} (entered directly)`;
+  const stats = $("result").querySelector(".stats");
+  stats.hidden = false;
+  $("result").querySelector(".more").hidden = true;
+  $("result").querySelector(".status-msg").hidden = true;
+  const [scoreEl, rankEl, topEl] = stats.querySelectorAll(".stat-value");
+  scoreEl.textContent = "—";
+  rankEl.textContent = fmt(c.rank, 0);
+  topEl.textContent = `${fmt((c.rank / data.results.stats.appeared) * 100, 2)}%`;
+  $("predict").hidden = false;
+}
+
+function renderResult(c, s) {
+  $("result").querySelector(".section-title").textContent = c.roll ? `${c.appNo} · Roll ${c.roll}` : c.appNo;
+  const stats = $("result").querySelector(".stats"), more = $("result").querySelector(".more");
+  const statusMsg = $("result").querySelector(".status-msg");
+  $("predict").hidden = s.status !== "OK";
+  if (s.status !== "OK") {
+    stats.hidden = more.hidden = true;
+    statusMsg.hidden = false;
+    statusMsg.textContent = `Status: ${s.status}. No prediction available.`;
+    return;
+  }
+  stats.hidden = more.hidden = false;
+  statusMsg.hidden = true;
+  const [scoreEl, rankEl, topEl] = stats.querySelectorAll(".stat-value");
+  scoreEl.textContent = c.score;
+  rankEl.textContent = fmt(c.rank, 0);
+  topEl.textContent = `${fmt(s.topPercent, 2)}%`;
+  const dds = more.querySelectorAll(".kv dd");
+  dds[0].textContent = `${fmt(s.percentileLE, 2)}%`;
+  dds[1].textContent = `${fmt(s.percentileLT, 2)}%`;
+  dds[2].textContent = `${fmt(s.percentileMid, 2)}%`;
+  dds[3].textContent = `${fmt(s.percentileRank, 2)}%`;
+  dds[4].textContent = fmt(s.ahead, 0);
+  dds[5].textContent = fmt(s.sameScore, 0);
+}
+
+// --- prediction: outlook + streams ---
+function showPrediction() {
+  const category = document.querySelector('input[name="category"]:checked').value;
+  const domicile = $("domicile").checked;
+  const p = predict({ rank: candidate.rank, category, domicile }, data);
+  options = p.options;
+  myMerit = p.merit;
+  renderOutlook(p.merit, p.insights, category, domicile);
+  renderStreams(p.insights);
+  fillFilter("f-stream", options.map((o) => o.stream));
+  fillFilter("f-type", options.map((o) => o.type));
+  fillFilter("f-route", options.map((o) => o.route));
+  resetToDefaultFilters();
+  reveal($("prediction"));
+  renderList();
+}
+
+function renderOutlook(merit, insights, category, domicile) {
+  const govt = insights.reduce((sum, i) => sum + i.govtReachable, 0);
+  const streamsWithGovt = insights.filter((i) => i.govtReachable > 0).length;
+  const el = $("outlook");
+  el.classList.remove("outlook--good", "outlook--none");
+  el.classList.add(govt > 0 ? "outlook--good" : "outlook--none");
+  el.querySelector(".outlook-verdict").textContent = govt > 0
+    ? `Govt seats in reach in ${streamsWithGovt} branches`
+    : "No Govt seats in reach — see private and All India options below";
+  let meta = `Your predicted Gujarat rank: ${gjTag("General")} ~${merit.general}`;
+  if (merit.category != null) meta += ` · ${gjTag(category)} ~${merit.category}`;
+  meta += ` · your ${airTag} ${fmt(candidate.rank, 0)}`;
+  if (merit.extrapolated) meta += " · Estimate extrapolated beyond 2025 lists.";
+  if (!domicile) meta += " · Without Gujarat domicile only All India (MCC) seats are shown.";
+  el.querySelector(".outlook-meta").innerHTML = meta;
+}
+
+const BRANCH_PAGE = 8;
+
+function renderStreams(insights) {
+  const list = $("streams"), btn = $("show-all-branches");
+  list.innerHTML = insights.map((i) => `
+    <details class="card stream">
+      <summary class="stream-head">
+        <span class="stream-name">${esc(i.stream)}</span>
+        <span class="pill pill-govt">Govt ${i.govtReachable}</span>
+        <span class="pill pill-private">Private ${i.privateReachable}</span>
+      </summary>
+      <div class="stream-body">
+        <p>${i.topGovt.length ? esc(i.topGovt.join(", ")) : i.closestMiss ? `None. Closest: ${esc(i.closestMiss)}` : "None"}</p>
+        <p class="muted">${i.feeMin == null ? "Fee data not available" : `${esc(fee(i.feeMin))} – ${esc(fee(i.feeMax))} / yr`}</p>
+        <button class="btn btn-secondary show-stream" type="button" data-stream="${esc(i.stream)}">Show options</button>
+      </div>
+    </details>`).join("");
+  const hasMore = insights.length > BRANCH_PAGE;
+  btn.hidden = !hasMore;
+  list.classList.toggle("collapsed", hasMore);
+  if (hasMore) {
+    btn.dataset.expandLabel = `Show all ${insights.length} branches`;
+    btn.textContent = btn.dataset.expandLabel;
+    btn.setAttribute("aria-expanded", "false");
+  }
+}
+
+// --- filters ---
+// multi-select dropdowns: <details> + checkboxes; nothing ticked means "all"
+function fillFilter(id, values) {
+  const counts = new Map();
+  for (const v of values) counts.set(v, (counts.get(v) || 0) + 1);
+  $(id).querySelector(".ms-panel").innerHTML = [...counts.keys()].sort().map((v) =>
+    `<label class="ms-item"><input type="checkbox" value="${esc(v)}"><span>${esc(v)}</span><span class="chip-count">${counts.get(v)}</span></label>`).join("");
+  msLabel(id);
+}
+
+const picked = (id) => new Set([...$(id).querySelectorAll("input:checked")].map((i) => i.value));
+
+function msLabel(id) {
+  const el = $(id), sel = [...picked(id)];
+  el.querySelector("summary").textContent = sel.length === 0 ? el.dataset.all
+    : sel.length === 1 ? sel[0] : `${sel.length} ${el.dataset.unit} selected`;
+}
+
+function setPicked(id, values) {
+  for (const box of $(id).querySelectorAll("input")) box.checked = values.includes(box.value);
+  msLabel(id);
+}
+
+// fee cap keeps rows with unknown fee (MCC seats carry no fee data)
+function matchesFilters(o) {
+  const st = picked("f-stream"), ty = picked("f-type"), ro = picked("f-route"), cap = Number($("f-fee").value);
+  return (!st.size || st.has(o.stream)) && (!ty.size || ty.has(o.type)) && (!ro.size || ro.has(o.route))
+    && (!cap || o.fee == null || o.fee <= cap);
+}
+
+const currentChance = () => document.querySelector('.chip[aria-pressed="true"]').dataset.chance;
+function setChance(value) {
+  for (const chip of document.querySelectorAll(".chip")) chip.setAttribute("aria-pressed", String(chip.dataset.chance === value));
+}
+
+function resetToDefaultFilters() {
+  $("f-sort").value = "chance";
+  setChance("reach");
+  pageSize = 30;
+}
+
+function clearFilters() {
+  for (const id of ["f-stream", "f-type", "f-route"]) setPicked(id, []);
+  $("f-fee").value = "";
+  resetToDefaultFilters();
+  renderList();
+}
+
+function filtered() {
+  const ch = currentChance();
+  return options.filter((o) => matchesFilters(o) && (ch === "all" || (ch === "reach" ? REACHABLE.has(o.chance) : o.chance === ch)));
+}
+
+function sorted(rows) {
+  const by = $("f-sort").value, arr = rows.slice();
+  if (by === "fee-asc") arr.sort((a, b) => (a.fee ?? Infinity) - (b.fee ?? Infinity));
+  else if (by === "fee-desc") arr.sort((a, b) => (b.fee ?? -Infinity) - (a.fee ?? -Infinity));
+  else if (by === "college") arr.sort((a, b) => a.college.localeCompare(b.college));
+  return arr; // "chance": options already arrive in engine order
+}
+
+function updateChipCounts() {
+  const base = options.filter(matchesFilters);
+  const counts = {
+    reach: base.filter((o) => REACHABLE.has(o.chance)).length, all: base.length,
+    High: base.filter((o) => o.chance === "High").length, Good: base.filter((o) => o.chance === "Good").length,
+    Borderline: base.filter((o) => o.chance === "Borderline").length, Low: base.filter((o) => o.chance === "Low").length,
+  };
+  for (const chip of document.querySelectorAll(".chip")) chip.querySelector(".chip-count").textContent = counts[chip.dataset.chance] ?? 0;
+}
+
+// --- list / table / paging ---
+// --- AIR verdict + round-by-round cutoffs ---
+const air = (n) => `~${fmt(Math.round(n / 10) * 10, 0)}`;
+const approx = (n) => `≈ ${fmt(Math.round(n / 10) * 10, 0)}`;
+
+// Two scales, kept apart:
+//   Gujarat rank = position in the Gujarat state merit list (General list, or the category list). State counselling
+//                  admits by this, so it is the real cutoff for Gujarat State seats.
+//   AIR          = All India Rank. MCC seats admit by AIR; for state seats it is only an approximate equivalent.
+const catLabel = (name) => (name === "Open" ? "General" : name);
+const n0 = (n) => fmt(Math.round(n), 0);
+const n10 = (n) => fmt(Math.round(n / 10) * 10, 0);
+// visual tags: purple GJ = Gujarat state merit rank, blue AIR = All India Rank
+const gjTag = (cat) => `<span class="tag tag-gj" title="Gujarat state merit rank">GJ${cat ? ` ${esc(cat)}` : ""}</span>`;
+const airTag = `<span class="tag tag-air" title="All India Rank">AIR</span>`;
+const LEGEND = `<p class="tag-legend">${gjTag("")} Gujarat state rank (used by Gujarat counselling) &nbsp; ${airTag} All India Rank (≈ = approximate equivalent)</p>`;
+
+function verdict(o) {
+  const c = o.closing;
+  if (!c) return { cls: "none", head: "No cutoff data for your category" };
+  if (c.vacant) return { cls: "ahead", head: `✓ Seat went vacant in ${c.round} — open to anyone eligible` };
+  if (c.air == null) return { cls: "none", head: o.reason };
+  const state = c.merit != null, cat = catLabel(c.name), where = `${cat} seat, ${c.round}`;
+  if (!state) {
+    const ahead = c.air >= candidate.rank;
+    return { cls: ahead ? "ahead" : "short", state, cat, c,
+      head: `${ahead ? "✓" : "✗"} ${n10(Math.abs(c.air - candidate.rank))} ranks ${ahead ? "ahead of" : "behind"} the last admitted (${where})` };
+  }
+  const ahead = c.merit >= c.yourMerit;
+  return { cls: ahead ? "ahead" : "short", state, cat, c,
+    head: `${ahead ? "✓" : "✗"} ${Math.abs(c.merit - c.yourMerit)} places ${ahead ? "ahead of" : "behind"} the last admitted (${where})` };
+}
+
+// plain text for CSV and tooltips
+const verdictText = (o) => {
+  const v = verdict(o);
+  if (!v.c) return v.head;
+  return v.state
+    ? `${v.head} — last admitted Gujarat ${v.cat} rank ${v.c.merit} (≈ AIR ${n10(v.c.air)}); yours Gujarat ${v.cat} rank ~${v.c.yourMerit} (AIR ${n0(candidate.rank)})`
+    : `${v.head} — last admitted AIR ${n0(v.c.air)}; your AIR ${n0(candidate.rank)}`;
+};
+
+const verdictHtml = (o) => {
+  const v = verdict(o);
+  let body = "";
+  if (v.c) body = v.state
+    ? `<dl class="cmp"><dt>Last admitted</dt><dd>${gjTag(v.cat)} ${v.c.merit} <span class="approx">${airTag} ≈ ${n10(v.c.air)}</span></dd>
+       <dt>You</dt><dd>${gjTag(v.cat)} ~${v.c.yourMerit} <span class="approx">${airTag} ${n0(candidate.rank)}</span></dd></dl>`
+    : `<dl class="cmp"><dt>Last admitted</dt><dd>${airTag} ${n0(v.c.air)}</dd><dt>You</dt><dd>${airTag} ${n0(candidate.rank)}</dd></dl>`;
+  return `<p class="verdict verdict--${v.cls}">${esc(v.head)}</p>${body}`;
+};
+
+function roundsTable(o) {
+  if (!o.rounds || !o.rounds.length) return `<p class="muted">No round data.</p>`;
+  const state = o.route.startsWith("Gujarat");
+  const names = o.rounds[0].cols.map((c) => c.name);
+  const mine = (name) => (name === "Open" ? myMerit.general : myMerit.category);
+  const you = state
+    ? names.map((n) => `<td>${gjTag("")} ~${mine(n)}</td>`).join("")
+    : `<td>${airTag} ${n0(candidate.rank)}</td>`;
+  const cell = (c) => {
+    if (c.merit == null && c.air == null) return `<td class="r-none">—</td>`;
+    const cls = c.reached ? "r-hit" : "r-miss", mark = `<span class="r-mark" aria-label="${c.reached ? "in reach" : "out of reach"}">${c.reached ? "✓" : "✗"}</span>`;
+    if (c.vacant) return `<td class="${cls}">${mark} Vacant</td>`;
+    return state
+      ? `<td class="${cls}">${mark} ${gjTag("")} ${c.merit}${c.air != null ? `<span class="approx">${airTag} ≈ ${n10(c.air)}</span>` : ""}</td>`
+      : `<td class="${cls}">${mark} ${airTag} ${n0(c.air)}</td>`;
+  };
+  return `${state ? LEGEND : ""}<table class="rounds"><thead><tr><th scope="col">Round</th>${names.map((n) => `<th scope="col">${esc(catLabel(n))} seat — last admitted</th>`).join("")}</tr></thead>
+    <tbody><tr class="you-row"><th scope="row">You</th>${you}</tr>
+    ${o.rounds.map((r) => `<tr><th scope="row">${esc(r.round)}</th>${r.cols.map(cell).join("")}</tr>`).join("")}</tbody></table>
+    <p class="muted rounds-note">${state
+      ? `✓ = your GJ rank was within the last admitted GJ rank that round. Your ${airTag} is ${n0(candidate.rank)}.`
+      : "✓ = your AIR was within the last admitted AIR. All India (MCC) seats are allotted by AIR only."}</p>`;
+}
+
+// wide-table cell (HTML) — tags keep the two scales apart
+const closingShort = (o) => {
+  const c = o.closing;
+  if (!c) return "—";
+  if (c.vacant) return `Vacant (${c.round})`;
+  if (c.merit != null) return `${gjTag(catLabel(c.name))} ${c.merit} <span class="approx">${airTag} ≈ ${n10(c.air)}</span> <span class="muted">${c.round}</span>`;
+  return c.air == null ? "—" : `${airTag} ${n0(c.air)} <span class="muted">${c.round}</span>`;
+};
+
+const roundsText = (o) => (o.rounds || []).flatMap((r) => r.cols.map((c) =>
+  `${r.round} ${catLabel(c.name)}: ${c.vacant ? "vacant" : c.merit != null ? `Gujarat rank ${c.merit} (≈AIR ${Math.round(c.air)})` : c.air != null ? `AIR ${c.air}` : "-"}${c.reached ? " ✓" : ""}`)).join("; ");
+
+function cardHtml(o) {
+  const courseLine = o.stream === o.course ? courseLabel(o) : `${courseLabel(o)} · ${o.stream}`;
+  return `<article class="card option chance--${esc(o.chance)}">
+    <div class="option-top">
+      <h3 class="option-college">${esc(o.college)}</h3>
+      <span class="chip-chance chance--${esc(o.chance)}"><span class="icon" aria-hidden="true">${CHANCE_ICON[o.chance] || "?"}</span>${esc(o.chance)}</span>
+    </div>
+    <p class="option-course">${esc(courseLine)}</p>
+    <div class="meta-row">
+      <ul class="meta">
+        <li><span class="sr-only">Type: </span>${esc(o.type)}</li>
+        <li><span class="sr-only">Route: </span>${esc(o.route)}</li>
+        <li>${esc(feeLabel(o))}</li>
+        <li>${esc(earliestLabel(o))}</li>
+      </ul>
+    </div>
+    ${verdictHtml(o)}
+    <details class="why"><summary>Round-by-round cutoffs</summary>${roundsTable(o)}</details>
+  </article>`;
+}
+
+// wide screens: the Closing AIR cell is a toggle that opens the round table in a row underneath
+function rowHtml(o, i) {
+  return `<tr class="opt-row">${TABLE_COLS.map(([k]) => k === "chance"
+    ? `<td><span class="chip-chance chance--${esc(o.chance)}"><span class="icon" aria-hidden="true">${CHANCE_ICON[o.chance] || "?"}</span>${esc(o.chance)}</span></td>`
+    : k === "course" ? `<td>${esc(courseLabel(o))}</td>`
+    : k === "closing" ? `<td><button type="button" class="closing-btn verdict--${verdict(o).cls}" data-i="${i}" aria-expanded="false" title="${esc(verdictText(o))}">${closingShort(o)}<span class="caret" aria-hidden="true">▾</span></button></td>`
+    : `<td>${esc(k === "fee" ? fee(o.fee) : k === "earliestRound" ? earliest(o) : o[k])}</td>`).join("")}</tr>`;
+}
+
+let shownRows = [];
+let myMerit = null; // predicted Gujarat merit for the current prediction
+
+function toggleRounds(btn) {
+  const tr = btn.closest("tr"), open = btn.getAttribute("aria-expanded") === "true";
+  if (open) tr.nextElementSibling.remove();
+  else {
+    const o = shownRows[Number(btn.dataset.i)];
+    tr.insertAdjacentHTML("afterend", `<tr class="rounds-row"><td colspan="${TABLE_COLS.length}">
+      ${verdictHtml(o)}${roundsTable(o)}</td></tr>`);
+  }
+  btn.setAttribute("aria-expanded", String(!open));
+}
+
+function renderList() {
+  const rows = sorted(filtered());
+  updateChipCounts();
+  $("count").textContent = `${rows.length} options · ${rows.filter((o) => GOVT_TYPES.has(o.type)).length} Govt‑type`;
+  const isEmpty = rows.length === 0;
+  $("empty").hidden = !isEmpty;
+  $("cards").hidden = isEmpty;
+  document.querySelector(".table-wrap").hidden = isEmpty;
+  $("more").hidden = isEmpty || rows.length <= pageSize;
+  const page = rows.slice(0, pageSize);
+  $("cards").innerHTML = page.map(cardHtml).join("");
+  $("table").tBodies[0].innerHTML = page.map(rowHtml).join("");
+  shownRows = page;
+}
+
+function downloadCsv() {
+  const rows = sorted(filtered());
+  const cell = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+  const val = (o, k) => (k === "fee" ? fee(o.fee) : k === "earliestRound" ? earliest(o) : k === "course" ? courseLabel(o)
+    : k === "closing" ? verdictText(o) : o[k]);
+  const csv = [[...COLS.map(([, h]) => h), "Rounds"].map(cell).join(","),
+    ...rows.map((o) => [...COLS.map(([k]) => val(o, k)), roundsText(o)].map(cell).join(","))].join("\n");
+  const a = Object.assign(document.createElement("a"), {
+    href: URL.createObjectURL(new Blob([csv], { type: "text/csv" })), download: `${candidate.appNo || `AIR-${candidate.rank}`}-gujarat-options.csv` });
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+// --- wiring ---
+$("form").addEventListener("submit", (e) => { e.preventDefault(); showResult(); });
+$("predict").addEventListener("click", showPrediction);
+["f-stream", "f-type", "f-route", "f-fee", "f-sort"].forEach((id) => $(id).addEventListener("change", () => {
+  if ($(id).classList.contains("ms")) msLabel(id);
+  pageSize = 30;
+  renderList();
+}));
+// one dropdown open at a time; outside click or Escape closes it
+const dropdowns = [...document.querySelectorAll(".ms")];
+dropdowns.forEach((d) => d.addEventListener("toggle", () => { if (d.open) dropdowns.forEach((o) => o !== d && (o.open = false)); }));
+document.addEventListener("click", (e) => dropdowns.forEach((d) => { if (!d.contains(e.target)) d.open = false; }));
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") dropdowns.forEach((d) => (d.open = false)); });
+document.querySelector(".chips").addEventListener("click", (e) => {
+  const chip = e.target.closest(".chip");
+  if (!chip) return;
+  setChance(chip.dataset.chance);
+  pageSize = 30;
+  renderList();
+});
+$("streams").addEventListener("click", (e) => {
+  const btn = e.target.closest(".show-stream");
+  if (!btn) return;
+  setPicked("f-stream", [btn.dataset.stream]);
+  pageSize = 30;
+  renderList();
+  $("options-title").scrollIntoView({ behavior: reducedMotion() ? "auto" : "smooth" });
+});
+$("show-all-branches").addEventListener("click", () => {
+  const list = $("streams"), btn = $("show-all-branches");
+  const expanded = btn.getAttribute("aria-expanded") === "true";
+  list.classList.toggle("collapsed", expanded);
+  btn.textContent = expanded ? btn.dataset.expandLabel : "Show fewer";
+  btn.setAttribute("aria-expanded", String(!expanded));
+});
+$("more").addEventListener("click", () => { pageSize += 30; renderList(); });
+$("clear").addEventListener("click", clearFilters);
+$("csv").addEventListener("click", downloadCsv);
+$("table").addEventListener("click", (e) => { const btn = e.target.closest(".closing-btn"); if (btn) toggleRounds(btn); });
+
+// PWA: offline cache. Skipped on localhost so local edits are never served stale while developing.
+if ("serviceWorker" in navigator && location.hostname !== "localhost") navigator.serviceWorker.register("sw.js");
+
+load();
